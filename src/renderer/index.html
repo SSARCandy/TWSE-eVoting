@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣股東會自動投票系統</title>
+    <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Fira+Code&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <aside id="sidebar">
+            <header>
+                <h1>股東會自動投票</h1>
+                <div class="status-indicator">
+                    <span id="status-dot" class="idle"></span>
+                    <span id="status-text">閒置中</span>
+                </div>
+            </header>
+
+            <section class="config-section">
+                <div class="input-group">
+                    <label for="ids">身分證字號清單 (每行一個)</label>
+                    <textarea id="ids" placeholder="A123456789&#10;B223456789"></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label>投票偏好設定</label>
+                    <div class="radio-group">
+                        <label class="radio-container">
+                            <input type="radio" name="preference" value="agree" checked>
+                            <span class="checkmark"></span>
+                            全部贊成
+                        </label>
+                        <label class="radio-container">
+                            <input type="radio" name="preference" value="against">
+                            <span class="checkmark"></span>
+                            全部反對
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="controls">
+                <button id="start-btn" class="btn primary">🚀 開始執行</button>
+                <button id="stop-btn" class="btn danger" disabled>🛑 緊急停止</button>
+            </section>
+
+            <section class="progress-section">
+                <div class="progress-info">
+                    <span>進度: <span id="progress-val">0/0</span></span>
+                    <div id="progress-bar-container">
+                        <div id="progress-bar-fill"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="log-section">
+                <div class="log-header">
+                    <span>執行日誌</span>
+                    <button id="clear-log">清除</button>
+                </div>
+                <div id="log-container"></div>
+            </section>
+        </aside>
+
+        <main id="browser-placeholder">
+            <!-- BrowserView will be positioned here by Main Process -->
+            <div class="placeholder-content">
+                <p>正在載入股東e票通...</p>
+            </div>
+        </main>
+    </div>
+    <script src="renderer.js"></script>
+</body>
+</html>
