@@ -118,6 +118,31 @@ textarea:focus {
     border-color: var(--primary);
 }
 
+.path-selector {
+    display: flex;
+    gap: 8px;
+}
+
+.path-selector input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-muted);
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn.small {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    flex: none;
+    width: auto;
+}
+
 /* Radio buttons styling */
 .radio-group {
     display: flex;

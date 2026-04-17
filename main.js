@@ -1,10 +1,33 @@
-const { app, BrowserWindow, BrowserView, ipcMain, session } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, session, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 let mainWindow;
 let browserView;
 let stopRequested = false;
+
+const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
+
+function getConfig() {
+  try {
+    if (fs.existsSync(CONFIG_PATH)) {
+      return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    }
+  } catch (err) {
+    console.error('Failed to read config:', err);
+  }
+  return { outputDir: '', ids: '' };
+}
+
+function saveConfig(config) {
+  try {
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+    return true;
+  } catch (err) {
+    console.error('Failed to save config:', err);
+    return false;
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -73,7 +96,7 @@ app.on('window-all-closed', function () {
 });
 
 // IPC Handlers
-ipcMain.handle('start-voting', async (event, { ids, preference }) => {
+ipcMain.handle('start-voting', async (event, { ids, preference, outputDir }) => {
   stopRequested = false;
   const automation = require('./src/automation/main_flow');
   try {
@@ -87,12 +110,31 @@ ipcMain.handle('start-voting', async (event, { ids, preference }) => {
         const sanitizedProgress = JSON.parse(JSON.stringify(progress));
         mainWindow.webContents.send('progress', sanitizedProgress);
       }
-    }, () => stopRequested);
+    }, () => stopRequested, outputDir);
     return { success: true };
   } catch (error) {
     console.error('Automation error:', error);
     return { success: false, error: String(error.message) };
   }
+});
+
+ipcMain.handle('select-directory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+  if (result.canceled) {
+    return null;
+  } else {
+    return result.filePaths[0];
+  }
+});
+
+ipcMain.handle('get-config', async () => {
+  return getConfig();
+});
+
+ipcMain.handle('save-config', async (event, config) => {
+  return saveConfig(config);
 });
 
 ipcMain.handle('stop-voting', () => {

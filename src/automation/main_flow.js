@@ -3,7 +3,7 @@ const login = require('./login');
 const voting = require('./voting');
 const screenshot = require('./screenshot');
 
-async function run(webContents, ids, preference, sendLog, sendProgress, isStopRequested) {
+async function run(webContents, ids, preference, sendLog, sendProgress, isStopRequested, outputDir) {
     for (let i = 0; i < ids.length; i++) {
         if (isStopRequested()) {
             sendLog('停止請求已被接收，終止執行。');
@@ -61,7 +61,7 @@ async function run(webContents, ids, preference, sendLog, sendProgress, isStopRe
                     
                     // 5. Screenshot
                     sendLog(`[完成] ${company.name} 投票成功，正在截圖...`);
-                    const screenshotPath = await screenshot.execute(webContents, id, company);
+                    const screenshotPath = await screenshot.execute(webContents, id, company, outputDir);
                     sendLog(`[存檔] 截圖已儲存至: ${screenshotPath}`);
 
                     // Delay between companies

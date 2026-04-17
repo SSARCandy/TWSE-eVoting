@@ -7,6 +7,46 @@ const progressVal = document.getElementById('progress-val');
 const progressBarFill = document.getElementById('progress-bar-fill');
 const logContainer = document.getElementById('log-container');
 const clearLogBtn = document.getElementById('clear-log');
+const outputDirInput = document.getElementById('output-dir');
+const browseBtn = document.getElementById('browse-btn');
+
+let currentConfig = { outputDir: '' };
+
+async function init() {
+    currentConfig = await window.electronAPI.getConfig();
+    if (currentConfig.outputDir) {
+        outputDirInput.value = currentConfig.outputDir;
+    }
+    if (currentConfig.ids) {
+        idsInput.value = currentConfig.ids;
+    }
+}
+
+init();
+
+let saveTimeout;
+function debouncedSave() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+        currentConfig.ids = idsInput.value;
+        // Sanitize object to avoid "An object could not be cloned" error
+        const cleanConfig = JSON.parse(JSON.stringify(currentConfig));
+        await window.electronAPI.saveConfig(cleanConfig);
+    }, 1000);
+}
+
+idsInput.addEventListener('input', debouncedSave);
+
+browseBtn.addEventListener('click', async () => {
+    const selectedDir = await window.electronAPI.selectDirectory();
+    if (selectedDir) {
+        outputDirInput.value = selectedDir;
+        currentConfig.outputDir = selectedDir;
+        const cleanConfig = JSON.parse(JSON.stringify(currentConfig));
+        await window.electronAPI.saveConfig(cleanConfig);
+        addLog(`輸出資料夾已更改為: ${selectedDir}`, 'info');
+    }
+});
 
 function addLog(message, type = '') {
     const entry = document.createElement('div');
@@ -55,8 +95,9 @@ startBtn.addEventListener('click', async () => {
         // Ensuring data is purely serializable to avoid cloning issues
         const sanitizedIds = JSON.parse(JSON.stringify(ids));
         const sanitizedPreference = String(preference);
+        const outputDir = outputDirInput.value || '';
         
-        const result = await window.electronAPI.startVoting(sanitizedIds, sanitizedPreference);
+        const result = await window.electronAPI.startVoting(sanitizedIds, sanitizedPreference, outputDir);
         if (result.success) {
             addLog('任務執行完畢', 'info');
         } else {
