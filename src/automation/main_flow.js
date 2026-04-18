@@ -86,20 +86,20 @@ async function navigateBackToList(webContents, sendLog) {
  */
 async function run(webContents, ids, sendLog, sendProgress, isStopRequested, outputDir) {
     if (isMaintenanceTime()) {
-        sendLog('目前為系統維護時間 (00:00~07:00)，停止自動作業。', 'error');
+        sendLog('[系統] 目前為系統維護時間 (00:00~07:00)，停止自動作業。', 'error');
         return;
     }
 
     for (let i = 0; i < ids.length; i++) {
         if (isStopRequested()) {
-            sendLog('停止請求已被接收，終止執行。');
+            sendLog('[系統] 停止請求已被接收，終止執行。');
             break;
         }
 
         const id = ids[i];
         const maskedId = id.substring(0, 4) + '****' + id.substring(8);
         
-        sendLog(`[正在處理] 身分證: ${maskedId}`);
+        sendLog(`[系統] 開始處理身分證: ${maskedId}`);
         sendProgress({ 
             id: { current: i, total: ids.length },
             vote: { current: 0, total: 0 },
@@ -107,17 +107,17 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
         });
 
         try {
-            sendLog('正在清空 Session 資訊...');
+            sendLog('[系統] 正在清空 Session 資訊...');
             await webContents.session.clearStorageData();
             await webContents.session.clearCache();
 
             const loggedIn = await login.execute(webContents, id, sendLog);
             if (!loggedIn) {
-              sendLog(`[失敗] ${maskedId} 登入失敗，跳過。`, 'error');
+              sendLog(`[登入] ${maskedId} 登入失敗，跳過。`, 'error');
               continue;
             }
 
-            sendLog('正在抓取公司清單...');
+            sendLog('[清單] 正在抓取公司清單...');
             const companies = await voting.getCompanyList(webContents, sendLog);
             
             const pendingCodes = companies.filter(c => c.status === 'pending').map(c => c.code);
@@ -131,7 +131,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
             let totalShots = targetCodes.length;
             let currentShot = 0;
 
-            sendLog(`找到 ${totalVotes} 家需投票，${votedNeedScreenshot.length} 家需補截圖。共需處理 ${totalShots} 家。`);
+            sendLog(`[清單] 找到 ${totalVotes} 家需投票，${votedNeedScreenshot.length} 家需補截圖。共需處理 ${totalShots} 家。`);
 
             sendProgress({ 
                 id: { current: i + 1, total: ids.length },
@@ -145,7 +145,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
                 const code = targetCodes[j];
 
                 if (isScreenshotExists(id, code, outputDir)) {
-                    sendLog(`[略過] 股號 ${code} 已有截圖存檔，跳過。`);
+                    sendLog(`[清單] 股號 ${code} 已有截圖存檔，跳過。`);
                     if (pendingCodes.includes(code)) currentVote++;
                     currentShot++;
                     sendProgress({ 
@@ -156,7 +156,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
                     continue;
                 }
 
-                sendLog(`[步驟] 搜尋股號: ${code} ...`);
+                sendLog(`[導航] 搜尋股號: ${code} ...`);
                 
                 try {
                     const navResult = await voting.searchAndNavigate(webContents, code, sendLog);
@@ -164,7 +164,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
                     if (navResult.type === 'vote') {
                         sendLog(`[投票] 偵測到未投票，開始執行投票程序...`);
                         await voting.voteForCompany(webContents, { code, name: '查詢中', rowIndex: 0 }, sendLog, true);
-                        sendLog(`[完成] ${code} 投票成功。`);
+                        sendLog(`[投票] ${code} 投票成功。`);
                         
                         currentVote++;
                         sendProgress({ 
@@ -173,21 +173,21 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
                             screenshot: { current: currentShot, total: totalShots }
                         });
                         
-                        sendLog('[導航] 準備返回列表頁面...');
+                        sendLog('[導航] 準備返回查詢頁面...');
                         const clickedGo = await webContents.executeJavaScript(`(() => { const btn = document.getElementById('go'); if(btn){ btn.click(); return true; } return false; })()`);
                         if (!clickedGo) {
-                            sendLog('[導航] 找不到 id="go" 按鈕，嘗試回上頁');
+                            sendLog('[導航] 找不到確認按鈕，嘗試回上頁');
                             await webContents.goBack();
                         }
                         await new Promise(r => setTimeout(r, 2000));
                         
-                        sendLog(`[查詢] 準備點擊 ${code} 查詢以截圖...`);
+                        sendLog(`[截圖] 準備查詢 ${code} 以進行截圖...`);
                         const clickedQry = await webContents.executeJavaScript(`(() => { const link = document.querySelector('a[onclick*="\\'${code}\\',\\'qry\\'"]'); if(link){ link.click(); return true; } return false; })()`);
                         if (!clickedQry) throw new Error(`找不到股號 ${code} 的查詢連結`);
                         
                         await new Promise(r => setTimeout(r, 2000));
                     } else {
-                        sendLog(`[檢視] 偵測到已投過，已在查詢頁面...`);
+                        sendLog(`[導航] 偵測到已投過，已在查詢頁面...`);
                         if (pendingCodes.includes(code)) {
                             // If it was marked as pending but actually voted (edge case check)
                             currentVote++;
@@ -201,7 +201,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
                     
                     sendLog(`[截圖] 正在擷取 ${code} 投票證明...`);
                     const screenshotPath = await screenshot.execute(webContents, id, { code, name: '股東會' }, outputDir);
-                    sendLog(`[存檔] 截圖已儲存: ${path.basename(screenshotPath)}`);
+                    sendLog(`[截圖] 證明已儲存: ${path.basename(screenshotPath)}`);
 
                     currentShot++;
                     sendProgress({ 
@@ -222,14 +222,14 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
             await logout.execute(webContents, sendLog);
             await new Promise(r => setTimeout(r, 1500));
             
-            sendLog('導航回初始登入頁面...');
+            sendLog('[導航] 返回初始登入頁面...');
             await webContents.loadURL(CONSTANTS.URLS.LOGIN);
             await new Promise(r => setTimeout(r, 1000));
 
-            sendLog(`[完畢] ${maskedId} 處理流程結束。`, 'info');
+            sendLog(`[系統] ${maskedId} 處理流程結束。`, 'info');
 
         } catch (error) {
-            sendLog(`[全局錯誤] 處理 ${maskedId} 時發生異常: ${error.message}`, 'error');
+            sendLog(`[系統] 處理 ${maskedId} 時發生錯誤: ${error.message}`, 'error');
         }
     }
 }

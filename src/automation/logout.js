@@ -3,7 +3,7 @@
  */
 
 async function execute(webContents, sendLog) {
-  sendLog('正在執行登出程序...');
+  sendLog('[登出] 正在執行登出程序...');
 
   const safeExecute = async (script, timeoutMs = 3000) => {
     try {
@@ -72,10 +72,10 @@ async function execute(webContents, sendLog) {
   const result = await safeExecute(logoutScript, 4000);
   
   if (result === "SYS_MSG_CLICKED") {
-    sendLog('已在登出系統訊息頁面，已點擊最終確認按鈕。');
+    sendLog('[登出] 完成登出程序。');
     await new Promise(r => setTimeout(r, 2000));
   } else if (result === "LOGOUT_INITIATED" || (typeof result === 'string' && result.includes("ERROR:"))) {
-    sendLog('已觸發登出指令，等待跳轉...');
+    sendLog('[登出] 已觸發登出指令，等待跳轉...');
     await new Promise(r => setTimeout(r, 4000));
     
     // 跳轉後補刀
@@ -91,13 +91,13 @@ async function execute(webContents, sendLog) {
     `;
     const isFinalClicked = await safeExecute(checkFinalScript, 2000);
     if (isFinalClicked === true) {
-        sendLog('已點擊最後的登出確認 (doProcess) 按鈕。');
+        sendLog('[登出] 確認登出完成。');
         await new Promise(r => setTimeout(r, 2000));
     }
   } else if (result === "NOT_FOUND") {
-    sendLog('找不到登出按鈕，可能已經登出。', 'info');
+    sendLog('[系統] 找不到登出按鈕，可能已經登出。', 'info');
   } else {
-    sendLog(`登出流程執行結果: ${result}`, 'warning');
+    sendLog('[警告] 處理登出流程時發生非預期狀況。', 'warning');
   }
 }
 

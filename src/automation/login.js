@@ -5,12 +5,12 @@
 const CONSTANTS = require('../constants');
 
 async function execute(webContents, nationalId, sendLog) {
-  sendLog('正在跳轉至登入頁面...');
+  sendLog('[登入] 正在跳轉至登入頁面...');
   
   try {
     await webContents.loadURL(CONSTANTS.URLS.LOGIN);
   } catch (err) {
-    sendLog(`載入頁面失敗: ${err.message}`, 'error');
+    sendLog(`[登入] 載入頁面失敗: ${err.message}`, 'error');
     return false;
   }
   
@@ -36,10 +36,10 @@ async function execute(webContents, nationalId, sendLog) {
   `, 12000);
 
   if (ready !== true) {
-    sendLog('等待登入頁面元件逾時，可能載入過慢或 URL 錯誤。', 'warning');
+    sendLog('[警告] 登入頁面載入較慢，請稍候...', 'warning');
   }
 
-  sendLog('正在填寫登入資訊...');
+  sendLog('[登入] 正在填寫登入資訊...');
 
   const loginScript = `
     (async () => {
@@ -96,7 +96,7 @@ async function execute(webContents, nationalId, sendLog) {
     const success = await safeExecute(loginScript, 4000);
     // If it returns ERROR: TIMEOUT or ERROR: context destroyed, it means navigation started or alert popped up.
     if (typeof success === 'string' && success.includes('ERROR:') && !success.includes('TIMEOUT') && !success.includes('destroyed')) {
-        sendLog(`[Debug] 填寫資訊腳本異常: ${success}`, 'warning');
+        sendLog('[警告] 填寫資訊時發生非預期狀況。', 'warning');
     }
 
     // Wait for navigation or potential "Duplicate Login" dialog
@@ -148,10 +148,10 @@ async function execute(webContents, nationalId, sendLog) {
     const resultStr = String(result);
     
     if (resultStr.startsWith("DOM_MODAL_CLICKED") || resultStr.startsWith("NATIVE_DIALOG_CAPTURED")) {
-      sendLog(`偵測到系統提示 (${resultStr})，已自動點擊「確認」。`);
+      sendLog('[登入] 偵測到系統提示，已自動點選確認。');
       await new Promise(resolve => setTimeout(resolve, 3000));
     } else if (resultStr !== "NO_DIALOG_FOUND" && !resultStr.startsWith("ERROR: TIMEOUT") && !resultStr.includes('destroyed')) {
-      sendLog(`處理系統提示時發生異常: ${resultStr}`, 'warning');
+      sendLog('[警告] 處理系統提示時發生異常。', 'warning');
     }
     
     let currentUrl = webContents.getURL();
@@ -164,7 +164,7 @@ async function execute(webContents, nationalId, sendLog) {
     }
     
     if (currentUrl.includes('login') && !currentUrl.includes('index')) {
-        sendLog(`[Debug] 登入後未自動跳轉 (URL: ${currentUrl})，嘗試手動導航至首頁...`, 'warning');
+        sendLog('[警告] 登入後未自動跳轉，嘗試手動導航...', 'warning');
         await webContents.loadURL(CONSTANTS.URLS.INDEX);
         await new Promise(r => setTimeout(r, 3000));
         currentUrl = webContents.getURL();
@@ -176,7 +176,7 @@ async function execute(webContents, nationalId, sendLog) {
     
     return true;
   } catch (err) {
-    sendLog(`登入腳本執行錯誤: ${err.message}`, 'error');
+    sendLog(`[登入] 登入腳本執行錯誤: ${err.message}`, 'error');
     return false;
   }
 }
