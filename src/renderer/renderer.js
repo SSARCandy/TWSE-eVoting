@@ -152,17 +152,17 @@ window.electronAPI.onLog((msg) => {
 });
 
 window.electronAPI.onProgress((data) => {
-    // data: { currentIdIndex, totalIds, currentCompanyIndex, totalCompanies }
     try {
-        const { currentIdIndex, totalIds, currentCompanyIndex, totalCompanies } = data;
-        if (progressVal) {
-            progressVal.textContent = `ID ${currentIdIndex + 1}/${totalIds} | 公司 ${currentCompanyIndex + 1}/${totalCompanies || 0}`;
-        }
+        const updateBar = (valId, fillId, current, total) => {
+            const valEl = document.getElementById(valId);
+            const fillEl = document.getElementById(fillId);
+            if (valEl) valEl.textContent = `${current}/${total}`;
+            if (fillEl) fillEl.style.width = total > 0 ? `${(current / total) * 100}%` : '0%';
+        };
 
-        if (progressBarFill) {
-            const percentage = ((currentIdIndex / totalIds) * 100);
-            progressBarFill.style.width = `${percentage}%`;
-        }
+        if (data.id) updateBar('id-progress-val', 'id-progress-fill', data.id.current, data.id.total);
+        if (data.vote) updateBar('vote-progress-val', 'vote-progress-fill', data.vote.current, data.vote.total);
+        if (data.screenshot) updateBar('shot-progress-val', 'shot-progress-fill', data.screenshot.current, data.screenshot.total);
     } catch (e) {
         console.error('Progress update error:', e);
     }

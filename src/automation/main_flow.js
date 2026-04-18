@@ -100,7 +100,11 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
         const maskedId = id.substring(0, 4) + '****' + id.substring(8);
         
         sendLog(`[正在處理] 身分證: ${maskedId}`);
-        sendProgress({ currentIdIndex: i, totalIds: ids.length, currentCompanyIndex: 0, totalCompanies: 0 });
+        sendProgress({ 
+            id: { current: i, total: ids.length },
+            vote: { current: 0, total: 0 },
+            screenshot: { current: 0, total: 0 }
+        });
 
         try {
             sendLog('正在清空 Session 資訊...');
@@ -121,21 +125,34 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
             const votedNeedScreenshot = votedCodes.filter(code => !isScreenshotExists(id, code, outputDir));
             
             const targetCodes = [...pendingCodes, ...votedNeedScreenshot];
-            sendLog(`找到 ${pendingCodes.length} 家需投票，${votedNeedScreenshot.length} 家需補截圖。共需處理 ${targetCodes.length} 家。`);
+            
+            let totalVotes = pendingCodes.length;
+            let currentVote = 0;
+            let totalShots = targetCodes.length;
+            let currentShot = 0;
+
+            sendLog(`找到 ${totalVotes} 家需投票，${votedNeedScreenshot.length} 家需補截圖。共需處理 ${totalShots} 家。`);
+
+            sendProgress({ 
+                id: { current: i + 1, total: ids.length },
+                vote: { current: currentVote, total: totalVotes },
+                screenshot: { current: currentShot, total: totalShots }
+            });
             
             for (let j = 0; j < targetCodes.length; j++) {
                 if (isStopRequested()) break;
 
                 const code = targetCodes[j];
-                sendProgress({ 
-                    currentIdIndex: i, 
-                    totalIds: ids.length, 
-                    currentCompanyIndex: j, 
-                    totalCompanies: targetCodes.length 
-                });
 
                 if (isScreenshotExists(id, code, outputDir)) {
                     sendLog(`[略過] 股號 ${code} 已有截圖存檔，跳過。`);
+                    if (pendingCodes.includes(code)) currentVote++;
+                    currentShot++;
+                    sendProgress({ 
+                        id: { current: i + 1, total: ids.length },
+                        vote: { current: currentVote, total: totalVotes },
+                        screenshot: { current: currentShot, total: totalShots }
+                    });
                     continue;
                 }
 
@@ -148,6 +165,13 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
                         sendLog(`[投票] 偵測到未投票，開始執行投票程序...`);
                         await voting.voteForCompany(webContents, { code, name: '查詢中', rowIndex: 0 }, sendLog, true);
                         sendLog(`[完成] ${code} 投票成功。`);
+                        
+                        currentVote++;
+                        sendProgress({ 
+                            id: { current: i + 1, total: ids.length },
+                            vote: { current: currentVote, total: totalVotes },
+                            screenshot: { current: currentShot, total: totalShots }
+                        });
                         
                         sendLog('[導航] 準備返回列表頁面...');
                         const clickedGo = await webContents.executeJavaScript(`(() => { const btn = document.getElementById('go'); if(btn){ btn.click(); return true; } return false; })()`);
@@ -164,11 +188,27 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
                         await new Promise(r => setTimeout(r, 2000));
                     } else {
                         sendLog(`[檢視] 偵測到已投過，已在查詢頁面...`);
+                        if (pendingCodes.includes(code)) {
+                            // If it was marked as pending but actually voted (edge case check)
+                            currentVote++;
+                            sendProgress({ 
+                                id: { current: i + 1, total: ids.length },
+                                vote: { current: currentVote, total: totalVotes },
+                                screenshot: { current: currentShot, total: totalShots }
+                            });
+                        }
                     }
                     
                     sendLog(`[截圖] 正在擷取 ${code} 投票證明...`);
                     const screenshotPath = await screenshot.execute(webContents, id, { code, name: '股東會' }, outputDir);
                     sendLog(`[存檔] 截圖已儲存: ${path.basename(screenshotPath)}`);
+
+                    currentShot++;
+                    sendProgress({ 
+                        id: { current: i + 1, total: ids.length },
+                        vote: { current: currentVote, total: totalVotes },
+                        screenshot: { current: currentShot, total: totalShots }
+                    });
 
                 } catch (procError) {
                     sendLog(`[錯誤] 處理股號 ${code} 發生異常: ${procError.message}，將繼續下一間公司。`, 'error');
