@@ -183,15 +183,17 @@ function setupApplicationMenu() {
               type: 'info',
               title: '關於 TWSE Auto eVoting',
               message: `TWSE Auto eVoting\n\n版本 (Version): ${pkg.version}\n日期 (Release Date): ${releaseDate}`,
-              buttons: ['作者網站', 'GitHub'],
-              defaultId: 2,
-              cancelId: 2
+              buttons: ['使用說明 (README)', 'GitHub', '作者網站', '關閉'],
+              defaultId: 0,
+              cancelId: 3
             });
 
             if (response === 0) {
-              shell.openExternal('https://ssarcandy.tw');
+              shell.openExternal('https://github.com/SSARCandy/TWSE-Auto-eVoting/blob/master/README.md');
             } else if (response === 1) {
-              shell.openExternal('https://github.com/SSARCandy/TWSE-eVoting');
+              shell.openExternal('https://github.com/SSARCandy/TWSE-Auto-eVoting');
+            } else if (response === 2) {
+              shell.openExternal('https://ssarcandy.tw');
             }
           }
         }
