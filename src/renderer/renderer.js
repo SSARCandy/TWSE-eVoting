@@ -1,5 +1,4 @@
 const idsInput = document.getElementById('ids');
-const stockCodesInput = document.getElementById('stock-codes');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 const statusDot = document.getElementById('status-dot');
@@ -11,7 +10,7 @@ const clearLogBtn = document.getElementById('clear-log');
 const outputDirInput = document.getElementById('output-dir');
 const browseBtn = document.getElementById('browse-btn');
 
-let currentConfig = { outputDir: '', ids: '', stockCodes: '' };
+let currentConfig = { outputDir: '', ids: '' };
 
 async function init() {
     currentConfig = await window.electronAPI.getConfig();
@@ -20,9 +19,6 @@ async function init() {
     }
     if (currentConfig.ids) {
         idsInput.value = currentConfig.ids;
-    }
-    if (currentConfig.stockCodes) {
-        stockCodesInput.value = currentConfig.stockCodes;
     }
 }
 
@@ -33,14 +29,12 @@ function debouncedSave() {
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(async () => {
         currentConfig.ids = idsInput.value;
-        currentConfig.stockCodes = stockCodesInput.value;
         const cleanConfig = JSON.parse(JSON.stringify(currentConfig));
         await window.electronAPI.saveConfig(cleanConfig);
     }, 1000);
 }
 
 idsInput.addEventListener('input', debouncedSave);
-stockCodesInput.addEventListener('input', debouncedSave);
 
 browseBtn.addEventListener('click', async () => {
     const selectedDir = await window.electronAPI.selectDirectory();
@@ -72,12 +66,6 @@ startBtn.addEventListener('click', async () => {
 
     const ids = rawIds.split(/[,\n]/).map(id => id.trim()).filter(id => id.length > 0);
 
-    const rawStockCodes = stockCodesInput.value.trim();
-    const stockCodes = rawStockCodes ? rawStockCodes.split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 0) : null;
-
-    const prefElement = document.querySelector('input[name="preference"]:checked');
-    const preference = prefElement ? prefElement.value : 'agree';
-
     // Maintenance Guard (00:00 - 07:00 Taiwan Time UTC+8)
     const now = new Date();
     const taiwantime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
@@ -95,22 +83,16 @@ startBtn.addEventListener('click', async () => {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     idsInput.disabled = true;
-    stockCodesInput.disabled = true;
     statusDot.className = 'running';
     statusText.textContent = '執行中...';
 
     addLog(`開始執行，共 ${ids.length} 個帳號`, 'info');
-    if (stockCodes) {
-        addLog(`指定處理股號: ${stockCodes.join(', ')}`, 'info');
-    }
 
     try {
         const sanitizedIds = JSON.parse(JSON.stringify(ids));
-        const sanitizedPreference = String(preference);
         const outputDir = outputDirInput.value || '';
-        const sanitizedStockCodes = stockCodes ? JSON.parse(JSON.stringify(stockCodes)) : null;
 
-        const result = await window.electronAPI.startVoting(sanitizedIds, sanitizedPreference, outputDir, sanitizedStockCodes);
+        const result = await window.electronAPI.startVoting(sanitizedIds, outputDir);
         if (result.success) {
             addLog('任務執行完畢', 'info');
         } else {
@@ -123,7 +105,6 @@ startBtn.addEventListener('click', async () => {
         startBtn.disabled = false;
         stopBtn.disabled = true;
         idsInput.disabled = false;
-        stockCodesInput.disabled = false;
         statusDot.className = 'idle';
         statusText.textContent = '閒置中';
     }

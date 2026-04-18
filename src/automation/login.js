@@ -14,8 +14,18 @@ async function execute(webContents, nationalId, sendLog) {
     return false;
   }
   
+  const safeExecute = async (script, timeoutMs = 3000) => {
+    try {
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs));
+      const execPromise = webContents.executeJavaScript(script);
+      return await Promise.race([execPromise, timeoutPromise]);
+    } catch (err) {
+      return "ERROR: " + err.message;
+    }
+  };
+
   // Faster proactive check for existence of key element
-  const ready = await webContents.executeJavaScript(`
+  const ready = await safeExecute(`
     (async () => {
       for (let i = 0; i < 20; i++) { // Max 10s total
         if (document.getElementById('caType') || document.getElementById('pageIdNo')) return true;
@@ -23,9 +33,9 @@ async function execute(webContents, nationalId, sendLog) {
       }
       return false;
     })()
-  `);
+  `, 12000);
 
-  if (!ready) {
+  if (ready !== true) {
     sendLog('等待登入頁面元件逾時，可能載入過慢或 URL 錯誤。', 'warning');
   }
 
@@ -74,14 +84,20 @@ async function execute(webContents, nationalId, sendLog) {
       }
 
       // 使用 setTimeout 避免點擊觸發導航時卡住 executeJavaScript Promise
-      setTimeout(() => loginBtn.click(), 50);
+      setTimeout(() => {
+          try { loginBtn.click(); } catch(e) {}
+      }, 50);
+      
       return true;
     })()
   `;
 
   try {
-    const success = await webContents.executeJavaScript(loginScript);
-    if (!success) return false;
+    const success = await safeExecute(loginScript, 4000);
+    // If it returns ERROR: TIMEOUT or ERROR: context destroyed, it means navigation started or alert popped up.
+    if (typeof success === 'string' && success.includes('ERROR:') && !success.includes('TIMEOUT') && !success.includes('destroyed')) {
+        sendLog(`[Debug] 填寫資訊腳本異常: ${success}`, 'warning');
+    }
 
     // Wait for navigation or potential "Duplicate Login" dialog
     await new Promise(resolve => setTimeout(resolve, 3000));
@@ -107,7 +123,7 @@ async function execute(webContents, nationalId, sendLog) {
           if (hasDialog) {
             const specificBtn = document.getElementById('comfirmDialog_okBtn') || document.getElementById('confirmDialog_okBtn');
             if (specificBtn) {
-              specificBtn.click();
+              setTimeout(() => specificBtn.click(), 50);
               return "DOM_MODAL_CLICKED_BY_ID";
             }
 
@@ -118,7 +134,7 @@ async function execute(webContents, nationalId, sendLog) {
               });
             
             if (okBtn) {
-              okBtn.click();
+              setTimeout(() => okBtn.click(), 50);
               return "DOM_MODAL_CLICKED_BY_TEXT";
             }
           }
@@ -128,13 +144,14 @@ async function execute(webContents, nationalId, sendLog) {
       })()
     `;
     
-    const result = await webContents.executeJavaScript(handleLoginDialog).catch((e) => `ERROR: ${e.message}`);
+    const result = await safeExecute(handleLoginDialog, 4000);
+    const resultStr = String(result);
     
-    if (result.startsWith("DOM_MODAL_CLICKED") || result.startsWith("NATIVE_DIALOG_CAPTURED")) {
-      sendLog(`偵測到系統提示 (${result})，已自動點擊「確認」。`);
+    if (resultStr.startsWith("DOM_MODAL_CLICKED") || resultStr.startsWith("NATIVE_DIALOG_CAPTURED")) {
+      sendLog(`偵測到系統提示 (${resultStr})，已自動點擊「確認」。`);
       await new Promise(resolve => setTimeout(resolve, 3000));
-    } else if (result !== "NO_DIALOG_FOUND" && !result.startsWith("ERROR")) {
-      sendLog(`處理系統提示時發生異常: ${result}`, 'warning');
+    } else if (resultStr !== "NO_DIALOG_FOUND" && !resultStr.startsWith("ERROR: TIMEOUT") && !resultStr.includes('destroyed')) {
+      sendLog(`處理系統提示時發生異常: ${resultStr}`, 'warning');
     }
     
     let currentUrl = webContents.getURL();

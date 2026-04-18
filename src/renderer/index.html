@@ -28,36 +28,10 @@
                 </div>
 
                 <div class="input-group">
-                    <label for="stock-codes">指定股號清單 (選填，以逗號分隔)</label>
-                    <textarea id="stock-codes" placeholder="2330,2454 (留空則處理所有待投票)"></textarea>
-                </div>
-
-                <div class="input-group">
                     <label for="output-dir">輸出資料夾 (截圖儲存路徑)</label>
                     <div class="path-selector">
                         <input type="text" id="output-dir" readonly placeholder="預設: 檔案/投票證明">
                         <button id="browse-btn" class="btn small">瀏覽...</button>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>投票偏好設定</label>
-                    <div class="radio-group">
-                        <label class="radio-container">
-                            <input type="radio" name="preference" value="agree" checked>
-                            <span class="checkmark"></span>
-                            全部贊成
-                        </label>
-                        <label class="radio-container">
-                            <input type="radio" name="preference" value="against">
-                            <span class="checkmark"></span>
-                            全部反對
-                        </label>
-                        <label class="radio-container">
-                            <input type="radio" name="preference" value="abstained">
-                            <span class="checkmark"></span>
-                            全部棄權
-                        </label>
                     </div>
                 </div>
             </section>

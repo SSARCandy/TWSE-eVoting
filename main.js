@@ -93,11 +93,11 @@ app.on('window-all-closed', function () {
 });
 
 // IPC Handlers
-ipcMain.handle('start-voting', async (event, { ids, preference, outputDir, stockCodes }) => {
+ipcMain.handle('start-voting', async (event, { ids, outputDir }) => {
   stopRequested = false;
   const automation = require('./src/automation/main_flow');
   try {
-    await automation.run(browserView.webContents, ids, preference, (msg) => {
+    await automation.run(browserView.webContents, ids, (msg) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('log', String(msg));
       }
@@ -106,7 +106,7 @@ ipcMain.handle('start-voting', async (event, { ids, preference, outputDir, stock
         const sanitizedProgress = JSON.parse(JSON.stringify(progress));
         mainWindow.webContents.send('progress', sanitizedProgress);
       }
-    }, () => stopRequested, outputDir, stockCodes);
+    }, () => stopRequested, outputDir);
     return JSON.parse(JSON.stringify({ success: true }));
   } catch (error) {
     console.error('Automation error:', error);

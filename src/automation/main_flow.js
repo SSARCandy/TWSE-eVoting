@@ -84,7 +84,7 @@ async function navigateBackToList(webContents, sendLog) {
 /**
  * Main execution flow for the automation process.
  */
-async function run(webContents, ids, preference, sendLog, sendProgress, isStopRequested, outputDir, stockCodes = null) {
+async function run(webContents, ids, sendLog, sendProgress, isStopRequested, outputDir) {
     if (isMaintenanceTime()) {
         sendLog('目前為系統維護時間 (00:00~07:00)，停止自動作業。', 'error');
         return;
@@ -113,21 +113,15 @@ async function run(webContents, ids, preference, sendLog, sendProgress, isStopRe
               continue;
             }
 
-            let targetCodes = [];
-            if (stockCodes && stockCodes.length > 0) {
-                targetCodes = stockCodes;
-                sendLog(`使用指定股號清單: ${targetCodes.join(', ')}`);
-            } else {
-                sendLog('正在抓取公司清單...');
-                const companies = await voting.getCompanyList(webContents, sendLog);
-                
-                const pendingCodes = companies.filter(c => c.status === 'pending').map(c => c.code);
-                const votedCodes = companies.filter(c => c.status === 'voted').map(c => c.code);
-                const votedNeedScreenshot = votedCodes.filter(code => !isScreenshotExists(id, code, outputDir));
-                
-                targetCodes = [...pendingCodes, ...votedNeedScreenshot];
-                sendLog(`找到 ${pendingCodes.length} 家需投票，${votedNeedScreenshot.length} 家需補截圖。共需處理 ${targetCodes.length} 家。`);
-            }
+            sendLog('正在抓取公司清單...');
+            const companies = await voting.getCompanyList(webContents, sendLog);
+            
+            const pendingCodes = companies.filter(c => c.status === 'pending').map(c => c.code);
+            const votedCodes = companies.filter(c => c.status === 'voted').map(c => c.code);
+            const votedNeedScreenshot = votedCodes.filter(code => !isScreenshotExists(id, code, outputDir));
+            
+            const targetCodes = [...pendingCodes, ...votedNeedScreenshot];
+            sendLog(`找到 ${pendingCodes.length} 家需投票，${votedNeedScreenshot.length} 家需補截圖。共需處理 ${targetCodes.length} 家。`);
             
             for (let j = 0; j < targetCodes.length; j++) {
                 if (isStopRequested()) break;
@@ -152,7 +146,7 @@ async function run(webContents, ids, preference, sendLog, sendProgress, isStopRe
                     
                     if (navResult.type === 'vote') {
                         sendLog(`[投票] 偵測到未投票，開始執行投票程序...`);
-                        await voting.voteForCompany(webContents, { code, name: '查詢中', rowIndex: 0 }, preference, sendLog, true);
+                        await voting.voteForCompany(webContents, { code, name: '查詢中', rowIndex: 0 }, sendLog, true);
                         sendLog(`[完成] ${code} 投票成功。`);
                         
                         sendLog('[導航] 準備返回列表頁面...');

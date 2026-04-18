@@ -90,7 +90,7 @@ async function getCompanyList(webContents, sendLog) {
 /**
  * Automates the voting process for a single company.
  */
-async function voteForCompany(webContents, company, preference, sendLog, skipClick = false) {
+async function voteForCompany(webContents, company, sendLog, skipClick = false) {
   if (!skipClick) {
     sendLog(`正在點擊 ${company.name} (${company.code}) 的投票按鈕...`);
 
@@ -114,7 +114,7 @@ async function voteForCompany(webContents, company, preference, sendLog, skipCli
     await delay(2000);
   }
 
-  sendLog(`進入投票頁面，正在執行自動投票程序 (偏好: ${preference})...`);
+  sendLog(`進入投票頁面，正在執行自動投票程序 (預設: 全部贊成)...`);
 
   let pageCount = 0;
   const maxPages = 10;
@@ -139,40 +139,28 @@ async function voteForCompany(webContents, company, preference, sendLog, skipCli
             return { type: 'submit', success: true };
         }
 
-        // 2. 處理選舉議案 (董事/監察人)
+        // 2. 處理選舉議案 (董事/監察人) - 全部贊成/平均分配
         const checkAllBox = document.querySelector('input[name="checkAllCandidates"], #checkAllCandidates1');
         const avgBtn = Array.from(document.querySelectorAll('a')).find(a => a.href?.includes('avarage') || a.href?.includes('average'));
-        const giveUpBtn = Array.from(document.querySelectorAll('a')).find(a => a.href?.includes('giveUp'));
 
-        if (checkAllBox || avgBtn || giveUpBtn) {
-            if ('${preference}' === 'agree') {
-                if (checkAllBox) {
-                    checkAllBox.click();
-                    if (typeof doCheckAll === 'function') doCheckAll(1);
-                    await sleep(100);
-                }
-                if (avgBtn) {
-                    avgBtn.click();
-                    if (typeof avarage === 'function') avarage();
-                }
-            } else {
-                if (giveUpBtn) {
-                    giveUpBtn.click();
-                    if (typeof giveUp === 'function') giveUp();
-                }
+        if (checkAllBox || avgBtn) {
+            if (checkAllBox) {
+                checkAllBox.click();
+                if (typeof doCheckAll === 'function') doCheckAll(1);
+                await sleep(100);
+            }
+            if (avgBtn) {
+                avgBtn.click();
+                if (typeof avarage === 'function') avarage();
             }
             await sleep(300);
         }
 
-        // 3. 處理一般議案
+        // 3. 處理一般議案 - 全部贊成
         let selectedByOptionAll = false;
         if (typeof optionAll === 'function') {
-            const optMap = { 'agree': 0, 'against': 1, 'disagree': 1, 'abstained': 2 };
-            const optIdx = optMap['${preference}'];
-            if (optIdx !== undefined) {
-                optionAll(optIdx);
-                selectedByOptionAll = true;
-            }
+            optionAll(0); // 0 corresponds to "agree"
+            selectedByOptionAll = true;
         }
 
         if (!selectedByOptionAll) {
@@ -180,16 +168,8 @@ async function voteForCompany(webContents, company, preference, sendLog, skipCli
             document.querySelectorAll('input[type="radio"]').forEach(r => groups.add(r.name));
             
             for (const groupName of groups) {
-                let targetValue = '1'; 
-                if ('${preference}' === 'random') {
-                    targetValue = Math.floor(Math.random() * 3 + 1).toString();
-                } else if (['against', 'disagree'].includes('${preference}')) {
-                    targetValue = '2';
-                } else if ('${preference}' === 'abstained') {
-                    targetValue = '3';
-                }
-                
-                const radio = document.querySelector(\`input[name="\${groupName}"][value="\${targetValue}"]\`);
+                // targetValue = '1' corresponds to agree/for in most generic voting radios
+                const radio = document.querySelector(\`input[name="\${groupName}"][value="1"]\`);
                 if (radio) {
                     radio.click();
                 }
