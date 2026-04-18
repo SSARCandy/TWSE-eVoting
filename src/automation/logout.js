@@ -5,9 +5,9 @@
 async function execute(webContents, sendLog) {
   sendLog('正在執行登出程序...');
 
-  const safeExecute = async (script, timeout = 3000) => {
+  const safeExecute = async (script, timeoutMs = 3000) => {
     try {
-      const timeoutPromise = new Promise((resolve, reject) => setTimeout(() => reject(new Error('TIMEOUT')), timeout));
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs));
       const execPromise = webContents.executeJavaScript(script);
       return await Promise.race([execPromise, timeoutPromise]);
     } catch (err) {
@@ -22,44 +22,34 @@ async function execute(webContents, sendLog) {
       window.confirm = () => { return true; };
 
       // 特例檢查：如果已經是在「系統回覆訊息」頁面
-      // 特徵：有 doProcess 按鈕，且頁面包含特定的表單或標題
       const doProcessBtn = document.querySelector('button[onclick*="doProcess()"]');
       const isSystemMessagePage = document.querySelector('.c-sysMsg_table') || document.body.innerHTML.includes('SYS_LOGOUT_SUCCESS');
       
       if (doProcessBtn && isSystemMessagePage) {
-          // 直接點擊該按鈕
           setTimeout(() => doProcessBtn.click(), 50);
           return "SYS_MSG_CLICKED";
       }
 
       // 嘗試尋找 Logout 或 登出 按鈕
-      let logoutBtn = document.querySelector('.c-header_logout') || 
-                      document.querySelector('div[onclick*="logOff"]') ||
-                      Array.from(document.querySelectorAll('a, button, div')).find(el => el.innerText.includes('Logout') || el.innerText.includes('登出'));
-      
-      if (!logoutBtn) {
-        logoutBtn = document.querySelector('.c-header__logout') || 
-                    document.querySelector('img[src*="logout"]') ||
-                    document.querySelector('.fa-sign-out-alt');
-      }
+      const logoutBtn = document.querySelector('.c-header_logout') || 
+                        document.querySelector('.c-header__logout') ||
+                        document.querySelector('div[onclick*="logOff"]') ||
+                        document.querySelector('img[src*="logout"]') ||
+                        document.querySelector('.fa-sign-out-alt') ||
+                        Array.from(document.querySelectorAll('a, button, div')).find(el => el.innerText.includes('Logout') || el.innerText.includes('登出'));
 
       if (logoutBtn) {
-        // 使用 setTimeout 確保不會卡住當前的 executeJavaScript
         setTimeout(() => {
-            try {
-                logoutBtn.click();
-            } catch(e) {}
+            try { logoutBtn.click(); } catch(e) {}
             
             // 延遲 1 秒後處理第一層確認對話框
             setTimeout(() => {
                 try {
                     const confirmBtn = document.getElementById('comfirmDialog_okBtn') || 
                                        Array.from(document.querySelectorAll('button, a')).find(el => 
-                                         el.innerText === 'Confirm' || el.innerText === '確認' || el.innerText === '確定' || el.innerText.includes('OK')
+                                         ['Confirm', '確認', '確定', 'OK'].some(kw => el.innerText.includes(kw))
                                        );
-                    if (confirmBtn) {
-                        confirmBtn.click();
-                    }
+                    if (confirmBtn) confirmBtn.click();
                     if (typeof window.logOff === 'function') window.logOff();
                 } catch(e) {}
             }, 1000);

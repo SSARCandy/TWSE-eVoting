@@ -31,6 +31,10 @@ The project is built on Node.js and Electron. Use the following commands to mana
 ## Development Conventions
 When modifying or extending this codebase, adhere to the following established practices:
 
+*   **Readability & Maintainability**: Keep code clean and modular. Extract complex logic into smaller, well-named helper functions (e.g., `isScreenshotExists`, `navigateBackToList`). Document functions using JSDoc.
+*   **Variable Declarations**: Use `const` as much as possible for variables and references that do not get reassigned. Only use `let` when mutation is strictly necessary.
+*   **Early Returns**: Avoid deep `if/else` nesting. Use early `return`, `continue`, or `break` statements to exit functions or loops as soon as a condition fails (e.g., if a DOM element is not found).
+*   **Performance & Speed Up**: Minimize arbitrary, long `delay()` calls. Prefer active polling (checking for an element in a loop with a small delay) so the script can proceed immediately when the condition is met. Use efficient array methods like `.some()` or `.find()` for text matching.
 *   **Module System**: The backend (Main Process) and Automation logic use CommonJS (`require` / `module.exports`).
 *   **DOM Interaction**: All interactions with the TDCC website are executed securely within the `BrowserView` via `webContents.executeJavaScript`.
 *   **Asynchronous Flow**: Web automation heavily relies on `async` / `await` and manual polling or `delay()` functions to wait for dynamic elements and page loads.

@@ -5,15 +5,12 @@
 const CONSTANTS = require('../constants');
 
 async function execute(webContents, nationalId, sendLog) {
-  const loginUrl = CONSTANTS.URLS.LOGIN;
-  
   sendLog('正在跳轉至登入頁面...');
   
-  // Use loadURL promise (wait for main frame)
   try {
-    await webContents.loadURL(loginUrl);
+    await webContents.loadURL(CONSTANTS.URLS.LOGIN);
   } catch (err) {
-    sendLog('載入頁面失敗: ' + err.message, 'error');
+    sendLog(`載入頁面失敗: ${err.message}`, 'error');
     return false;
   }
   
@@ -36,7 +33,7 @@ async function execute(webContents, nationalId, sendLog) {
 
   const loginScript = `
     (async () => {
-      function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+      const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
       
       // 預防同步 alert 阻擋執行
       window.alert = (msg) => { window.__lastAlertMsg = msg; window.__lastAlert = Date.now(); return true; };
@@ -45,17 +42,13 @@ async function execute(webContents, nationalId, sendLog) {
       // 1. 選擇券商網路下單憑證
       const caTypeSelect = document.getElementById('caType');
       if (caTypeSelect) {
-        caTypeSelect.value = 'SS'; // 券商網路下單憑證
+        caTypeSelect.value = 'SS'; 
         caTypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        // 觸發網站內建的 caTypeChange
-        if (typeof window.caTypeChange === 'function') {
-          window.caTypeChange();
-        }
+        if (typeof window.caTypeChange === 'function') window.caTypeChange();
       }
       await delay(800);
 
       // 2. 填入身分證字號 / 統編
-      // 根據 LibreAutomate 參考與實際觀察，比對 placeholder 或特定 ID
       const idInput = document.querySelector('input[placeholder*="身分證"]') || 
                       document.querySelector('input[placeholder*="統編"]') ||
                       document.querySelector('input.required[placeholder*="身分證"]') || 
@@ -63,28 +56,26 @@ async function execute(webContents, nationalId, sendLog) {
                       document.getElementById('idNo') ||
                       document.querySelector('input[name="idNo"]');
       
-      if (idInput) {
-        idInput.focus();
-        await delay(200);
-        idInput.value = '${nationalId}';
-        idInput.dispatchEvent(new Event('input', { bubbles: true }));
-        idInput.dispatchEvent(new Event('change', { bubbles: true }));
-        idInput.dispatchEvent(new Event('blur', { bubbles: true }));
-      } else {
+      if (!idInput) {
         throw new Error('找不到身分證/統編輸入框');
       }
+
+      idInput.focus();
+      await delay(200);
+      idInput.value = '${nationalId}';
+      ['input', 'change', 'blur'].forEach(evt => idInput.dispatchEvent(new Event(evt, { bubbles: true })));
       
       await delay(800);
 
       // 3. 點擊登入
       const loginBtn = document.getElementById('loginBtn');
-      if (loginBtn) {
-        // 使用 setTimeout 避免點擊觸發導航時卡住 executeJavaScript Promise
-        setTimeout(() => loginBtn.click(), 50);
-        return true;
-      } else {
+      if (!loginBtn) {
         throw new Error('找不到登入按鈕 (預期 ID: loginBtn)');
       }
+
+      // 使用 setTimeout 避免點擊觸發導航時卡住 executeJavaScript Promise
+      setTimeout(() => loginBtn.click(), 50);
+      return true;
     })()
   `;
 
@@ -108,7 +99,6 @@ async function execute(webContents, nationalId, sendLog) {
             return "NATIVE_DIALOG_CAPTURED: " + msg;
           }
 
-          // Look for any visible modal or swal
           const hasDialog = document.querySelector('.swal2-container.swal2-shown, .modal.show, .sweet-alert.visible') || 
                             Array.from(document.querySelectorAll('div, span, p')).some(el => 
                                el.innerText && (el.innerText.includes('重複登入') || el.innerText.includes('無待投票') || el.innerText.includes('無未投票') || el.innerText.includes('無可投票'))
@@ -124,7 +114,7 @@ async function execute(webContents, nationalId, sendLog) {
             const okBtn = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], .swal2-confirm, .btn-primary'))
               .find(el => {
                 const text = (el.innerText || el.value || "").trim();
-                return text === '確認' || text === '確定' || text === 'OK' || text.includes('確認') || text.includes('確定');
+                return ['確認', '確定', 'OK'].some(kw => text.includes(kw)) || text === 'OK';
               });
             
             if (okBtn) {
@@ -138,8 +128,9 @@ async function execute(webContents, nationalId, sendLog) {
       })()
     `;
     
-    const result = await webContents.executeJavaScript(handleLoginDialog).catch((e) => "ERROR: " + e.message);
-    if (result.startsWith("DOM_MODAL_CLICKED") || result === "NATIVE_DIALOG_CAPTURED") {
+    const result = await webContents.executeJavaScript(handleLoginDialog).catch((e) => `ERROR: ${e.message}`);
+    
+    if (result.startsWith("DOM_MODAL_CLICKED") || result.startsWith("NATIVE_DIALOG_CAPTURED")) {
       sendLog(`偵測到系統提示 (${result})，已自動點擊「確認」。`);
       await new Promise(resolve => setTimeout(resolve, 3000));
     } else if (result !== "NO_DIALOG_FOUND" && !result.startsWith("ERROR")) {
@@ -160,6 +151,7 @@ async function execute(webContents, nationalId, sendLog) {
         await webContents.loadURL(CONSTANTS.URLS.INDEX);
         await new Promise(r => setTimeout(r, 3000));
         currentUrl = webContents.getURL();
+        
         if (currentUrl.includes('login') && !currentUrl.includes('index')) {
             return false;
         }
@@ -167,7 +159,7 @@ async function execute(webContents, nationalId, sendLog) {
     
     return true;
   } catch (err) {
-    sendLog('登入腳本執行錯誤: ' + err.message, 'error');
+    sendLog(`登入腳本執行錯誤: ${err.message}`, 'error');
     return false;
   }
 }
