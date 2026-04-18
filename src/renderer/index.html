@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>台灣股東會自動投票系統</title>
     <link rel="stylesheet" href="index.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Fira+Code&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Fira+Code&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
     <div id="app">
         <aside id="sidebar">
@@ -20,8 +23,13 @@
 
             <section class="config-section">
                 <div class="input-group">
-                    <label for="ids">身分證字號清單 (每行一個)</label>
-                    <textarea id="ids" placeholder="A123456789&#10;B223456789"></textarea>
+                    <label for="ids">身分證字號清單 (以逗號分隔)</label>
+                    <textarea id="ids" placeholder="A123456789,A223456789 ..."></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label for="stock-codes">指定股號清單 (選填，以逗號分隔)</label>
+                    <textarea id="stock-codes" placeholder="2330,2454 (留空則處理所有待投票)"></textarea>
                 </div>
 
                 <div class="input-group">
@@ -45,6 +53,11 @@
                             <span class="checkmark"></span>
                             全部反對
                         </label>
+                        <label class="radio-container">
+                            <input type="radio" name="preference" value="abstained">
+                            <span class="checkmark"></span>
+                            全部棄權
+                        </label>
                     </div>
                 </div>
             </section>
@@ -66,7 +79,10 @@
             <section class="log-section">
                 <div class="log-header">
                     <span>執行日誌</span>
-                    <button id="clear-log">清除</button>
+                    <div class="log-actions">
+                        <button id="copy-log" class="btn small">複製</button>
+                        <button id="clear-log" class="btn small">清除</button>
+                    </div>
                 </div>
                 <div id="log-container"></div>
             </section>
@@ -81,4 +97,5 @@
     </div>
     <script src="renderer.js"></script>
 </body>
+
 </html>

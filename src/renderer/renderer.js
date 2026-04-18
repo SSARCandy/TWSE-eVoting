@@ -1,4 +1,5 @@
 const idsInput = document.getElementById('ids');
+const stockCodesInput = document.getElementById('stock-codes');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 const statusDot = document.getElementById('status-dot');
@@ -10,7 +11,7 @@ const clearLogBtn = document.getElementById('clear-log');
 const outputDirInput = document.getElementById('output-dir');
 const browseBtn = document.getElementById('browse-btn');
 
-let currentConfig = { outputDir: '' };
+let currentConfig = { outputDir: '', ids: '', stockCodes: '' };
 
 async function init() {
     currentConfig = await window.electronAPI.getConfig();
@@ -19,6 +20,9 @@ async function init() {
     }
     if (currentConfig.ids) {
         idsInput.value = currentConfig.ids;
+    }
+    if (currentConfig.stockCodes) {
+        stockCodesInput.value = currentConfig.stockCodes;
     }
 }
 
@@ -29,13 +33,14 @@ function debouncedSave() {
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(async () => {
         currentConfig.ids = idsInput.value;
-        // Sanitize object to avoid "An object could not be cloned" error
+        currentConfig.stockCodes = stockCodesInput.value;
         const cleanConfig = JSON.parse(JSON.stringify(currentConfig));
         await window.electronAPI.saveConfig(cleanConfig);
     }, 1000);
 }
 
 idsInput.addEventListener('input', debouncedSave);
+stockCodesInput.addEventListener('input', debouncedSave);
 
 browseBtn.addEventListener('click', async () => {
     const selectedDir = await window.electronAPI.selectDirectory();
@@ -65,15 +70,19 @@ startBtn.addEventListener('click', async () => {
         return;
     }
 
-    const ids = rawIds.split('\n').map(id => id.trim()).filter(id => id.length > 0);
+    const ids = rawIds.split(/[,\n]/).map(id => id.trim()).filter(id => id.length > 0);
+
+    const rawStockCodes = stockCodesInput.value.trim();
+    const stockCodes = rawStockCodes ? rawStockCodes.split(/[,\n]/).map(s => s.trim()).filter(s => s.length > 0) : null;
+
     const prefElement = document.querySelector('input[name="preference"]:checked');
     const preference = prefElement ? prefElement.value : 'agree';
 
     // Maintenance Guard (00:00 - 07:00 Taiwan Time UTC+8)
     const now = new Date();
-    const utcHours = now.getUTCHours();
-    const taiwanHours = (utcHours + 8) % 24;
-    
+    const taiwantime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+    const taiwanHours = taiwantime.getHours();
+
     if (taiwanHours >= 0 && taiwanHours < 7) {
         const confirmMsg = `【維護提醒】\n目前為系統維護時間 (00:00 ~ 07:00)，股東e票通可能無法正常登入或投票。\n\n您確定要繼續執行嗎？`;
         if (!confirm(confirmMsg)) {
@@ -86,18 +95,22 @@ startBtn.addEventListener('click', async () => {
     startBtn.disabled = true;
     stopBtn.disabled = false;
     idsInput.disabled = true;
+    stockCodesInput.disabled = true;
     statusDot.className = 'running';
     statusText.textContent = '執行中...';
-    
-    addLog(`開始執行，共 ${ids.length} 個身分證字號`, 'info');
-    
+
+    addLog(`開始執行，共 ${ids.length} 個帳號`, 'info');
+    if (stockCodes) {
+        addLog(`指定處理股號: ${stockCodes.join(', ')}`, 'info');
+    }
+
     try {
-        // Ensuring data is purely serializable to avoid cloning issues
         const sanitizedIds = JSON.parse(JSON.stringify(ids));
         const sanitizedPreference = String(preference);
         const outputDir = outputDirInput.value || '';
-        
-        const result = await window.electronAPI.startVoting(sanitizedIds, sanitizedPreference, outputDir);
+        const sanitizedStockCodes = stockCodes ? JSON.parse(JSON.stringify(stockCodes)) : null;
+
+        const result = await window.electronAPI.startVoting(sanitizedIds, sanitizedPreference, outputDir, sanitizedStockCodes);
         if (result.success) {
             addLog('任務執行完畢', 'info');
         } else {
@@ -110,6 +123,7 @@ startBtn.addEventListener('click', async () => {
         startBtn.disabled = false;
         stopBtn.disabled = true;
         idsInput.disabled = false;
+        stockCodesInput.disabled = false;
         statusDot.className = 'idle';
         statusText.textContent = '閒置中';
     }
@@ -120,9 +134,36 @@ stopBtn.addEventListener('click', async () => {
     await window.electronAPI.stopVoting();
 });
 
+const copyLogBtn = document.getElementById('copy-log');
+
+copyLogBtn.addEventListener('click', () => {
+    const logs = Array.from(logContainer.querySelectorAll('.log-entry'))
+        .map(entry => entry.textContent)
+        .join('\n');
+    
+    if (logs) {
+        navigator.clipboard.writeText(logs).then(() => {
+            const originalText = copyLogBtn.textContent;
+            copyLogBtn.textContent = '已複製';
+            setTimeout(() => {
+                copyLogBtn.textContent = originalText;
+            }, 2000);
+        });
+    }
+});
+
 clearLogBtn.addEventListener('click', () => {
     logContainer.innerHTML = '';
 });
+
+// Global Error Handlers to Catch "Cloning" or other IPC issues
+window.onerror = function (message, source, lineno, colno, error) {
+    addLog(`[System UI Error] ${message} (at ${source}:${lineno})`, 'error');
+};
+
+window.onunhandledrejection = function (event) {
+    addLog(`[Async Error] ${event.reason}`, 'error');
+};
 
 // IPC Listeners
 window.electronAPI.onLog((msg) => {
@@ -131,9 +172,17 @@ window.electronAPI.onLog((msg) => {
 
 window.electronAPI.onProgress((data) => {
     // data: { currentIdIndex, totalIds, currentCompanyIndex, totalCompanies }
-    const { currentIdIndex, totalIds, currentCompanyIndex, totalCompanies } = data;
-    progressVal.textContent = `ID ${currentIdIndex + 1}/${totalIds} | 公司 ${currentCompanyIndex + 1}/${totalCompanies || 0}`;
-    
-    const percentage = ((currentIdIndex / totalIds) * 100);
-    progressBarFill.style.width = `${percentage}%`;
+    try {
+        const { currentIdIndex, totalIds, currentCompanyIndex, totalCompanies } = data;
+        if (progressVal) {
+            progressVal.textContent = `ID ${currentIdIndex + 1}/${totalIds} | 公司 ${currentCompanyIndex + 1}/${totalCompanies || 0}`;
+        }
+
+        if (progressBarFill) {
+            const percentage = ((currentIdIndex / totalIds) * 100);
+            progressBarFill.style.width = `${percentage}%`;
+        }
+    } catch (e) {
+        console.error('Progress update error:', e);
+    }
 });

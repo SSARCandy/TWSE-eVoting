@@ -51,7 +51,7 @@ function createWindow() {
   });
 
   mainWindow.setBrowserView(browserView);
-  
+
   // Left panel is 400px, right is the rest
   const updateBounds = () => {
     const { width, height } = mainWindow.getContentBounds();
@@ -74,12 +74,9 @@ function createWindow() {
     }
   });
 
-  // Handle dialogs (alert, confirm)
+  // Use standard dialog handling if needed
   browserView.webContents.on('did-finish-load', () => {
-    browserView.webContents.executeJavaScript(`
-      window.confirm = () => true;
-      window.alert = () => {};
-    `);
+    // We handle dialogs in the automation scripts via DOM or other means
   });
 }
 
@@ -96,7 +93,7 @@ app.on('window-all-closed', function () {
 });
 
 // IPC Handlers
-ipcMain.handle('start-voting', async (event, { ids, preference, outputDir }) => {
+ipcMain.handle('start-voting', async (event, { ids, preference, outputDir, stockCodes }) => {
   stopRequested = false;
   const automation = require('./src/automation/main_flow');
   try {
@@ -106,15 +103,14 @@ ipcMain.handle('start-voting', async (event, { ids, preference, outputDir }) => 
       }
     }, (progress) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        // Sanitize progress object
         const sanitizedProgress = JSON.parse(JSON.stringify(progress));
         mainWindow.webContents.send('progress', sanitizedProgress);
       }
-    }, () => stopRequested, outputDir);
-    return { success: true };
+    }, () => stopRequested, outputDir, stockCodes);
+    return JSON.parse(JSON.stringify({ success: true }));
   } catch (error) {
     console.error('Automation error:', error);
-    return { success: false, error: String(error.message) };
+    return JSON.parse(JSON.stringify({ success: false, error: String(error.message) }));
   }
 });
 
@@ -122,22 +118,21 @@ ipcMain.handle('select-directory', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory']
   });
-  if (result.canceled) {
-    return null;
-  } else {
-    return result.filePaths[0];
-  }
+  const path = result.canceled ? null : result.filePaths[0];
+  return JSON.parse(JSON.stringify(path));
 });
 
 ipcMain.handle('get-config', async () => {
-  return getConfig();
+  const config = getConfig();
+  return JSON.parse(JSON.stringify(config));
 });
 
 ipcMain.handle('save-config', async (event, config) => {
-  return saveConfig(config);
+  const success = saveConfig(config);
+  return JSON.parse(JSON.stringify(success));
 });
 
 ipcMain.handle('stop-voting', () => {
   stopRequested = true;
-  return { success: true };
+  return JSON.parse(JSON.stringify({ success: true }));
 });

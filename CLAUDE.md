@@ -36,3 +36,13 @@ Taiwan Shareholder Voting Automation system using Electron.
 - Pure HTML and Vanilla CSS.
 - Modern CSS variables for styling.
 - Responsive layout with a fixed sidebar (400px) and a dynamic BrowserView for the target website.
+
+
+## Voting Flow
+
+1. 登入後獲取，按排序方式=未投票
+2. 每間公司 按 "投票" 按鈕
+3. 在投票頁面按 "全部贊成(承認)"
+4. 按下一步
+5. 按確認投票結果
+6. 按確認 (回應代碼 001)
