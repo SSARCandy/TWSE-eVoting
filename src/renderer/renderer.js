@@ -63,6 +63,42 @@ function addLog(message, type = '') {
   logContainer.scrollTop = logContainer.scrollHeight;
 }
 
+function isValidTaiwanID(id) {
+  if (!id) return false;
+  id = id.toUpperCase();
+
+  const letters = 'ABCDEFGHJKLMNPQRSTUVXYWZIO';
+  const firstCharIndex = letters.indexOf(id[0]);
+  if (firstCharIndex === -1) return false;
+
+  const firstNum = firstCharIndex + 10;
+  const d1 = Math.floor(firstNum / 10);
+  const d2 = firstNum % 10;
+
+  const weights = [1, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1];
+
+  if (/^[A-Z][1289]\d{8}$/.test(id)) {
+    const idDigits = [d1, d2, ...id.slice(1).split('').map(Number)];
+    let sum = 0;
+    for (let i = 0; i < 11; i++) {
+      sum += idDigits[i] * weights[i];
+    }
+    return sum % 10 === 0;
+  } else if (/^[A-Z][A-D]\d{8}$/.test(id)) {
+    const secondCharIndex = letters.indexOf(id[1]);
+    if (secondCharIndex === -1) return false;
+    const secondNum = (secondCharIndex + 10) % 10;
+    const idDigits = [d1, d2, secondNum, ...id.slice(2).split('').map(Number)];
+    let sum = 0;
+    for (let i = 0; i < 11; i++) {
+      sum += idDigits[i] * weights[i];
+    }
+    return sum % 10 === 0;
+  }
+
+  return false;
+}
+
 startBtn.addEventListener('click', async () => {
   const rawIds = idsInput.value.trim();
   if (!rawIds) {
@@ -70,7 +106,13 @@ startBtn.addEventListener('click', async () => {
     return;
   }
 
-  const ids = rawIds.split(/[,\n]/).map(id => id.trim()).filter(id => id.length > 0);
+  const ids = rawIds.split(/[,\n]/).map(id => id.trim().toUpperCase()).filter(id => id.length > 0);
+
+  const invalidIds = ids.filter(id => !isValidTaiwanID(id));
+  if (invalidIds.length > 0) {
+    addLog(`無效的身分證字號，請檢查: ${invalidIds.join(', ')}`, 'error');
+    return;
+  }
 
   // Maintenance Guard (00:00 - 07:00 Taiwan Time UTC+8)
   const now = new Date();
