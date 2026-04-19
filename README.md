@@ -1,5 +1,10 @@
 # TWSE Auto eVoting (台灣股東會自動投票系統)
 
+[![GitHub release](https://img.shields.io/github/v/release/SSARCandy/TWSE-eVoting)](https://github.com/SSARCandy/TWSE-eVoting/releases)
+[![Nightly Build Release](https://github.com/SSARCandy/TWSE-eVoting/actions/workflows/nightly.yml/badge.svg)](https://github.com/SSARCandy/TWSE-eVoting/actions/workflows/nightly.yml)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![Platform Application](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey)](https://github.com/SSARCandy/TWSE-eVoting/releases)
+
 這是一個幫助您**全自動**完成台灣股東會電子投票（股東e票通）的桌面應用程式。
 
 ## 🌟 這個程式可以做什麼？
@@ -28,7 +33,7 @@
 
 您不需要安裝任何複雜的開發環境或程式碼，只要下載打包好的執行檔即可直接使用：
 
-1. 前往本專案的 [Releases 頁面](https://github.com/SSARCandy/TWSE-Auto-eVoting/releases)。
+1. 前往本專案的 [Releases 頁面](https://github.com/SSARCandy/TWSE-eVoting/releases)。
 2. 根據您的作業系統下載對應的檔案：
    - **Windows**：下載結尾為 `.exe` 的檔案。下載後直接點擊兩下即可執行，**免安裝**。
    - **Mac**：下載結尾為 `.dmg` 的檔案。下載後打開，將應用程式拖曳到「應用程式 (Applications)」資料夾即可。
