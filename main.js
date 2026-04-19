@@ -71,10 +71,10 @@ function createWindow() {
 
   mainWindow.setBrowserView(browserView);
 
-  // Left panel is 400px, right is the rest
+  // Left panel is 450px, right is the rest
   const updateBounds = () => {
     const { width, height } = mainWindow.getContentBounds();
-    browserView.setBounds({ x: 400, y: 0, width: width - 400, height: height });
+    browserView.setBounds({ x: 450, y: 0, width: width - 450, height: height });
   };
 
   updateBounds();

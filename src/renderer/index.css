@@ -31,7 +31,7 @@ body {
 }
 
 #sidebar {
-    width: 400px;
+    width: 450px;
     background-color: var(--bg-sidebar);
     border-right: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
@@ -290,7 +290,8 @@ textarea:focus {
     gap: 8px;
 }
 
-#clear-log, #copy-log {
+#clear-log,
+#copy-log {
     background: none;
     border: none;
     color: var(--text-muted);
@@ -298,7 +299,8 @@ textarea:focus {
     font-size: 0.75rem;
 }
 
-#clear-log:hover, #copy-log:hover {
+#clear-log:hover,
+#copy-log:hover {
     color: var(--text-white);
 }
 

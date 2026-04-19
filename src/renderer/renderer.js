@@ -78,11 +78,8 @@ startBtn.addEventListener('click', async () => {
     const taiwanHours = taiwantime.getHours();
 
     if (taiwanHours >= 0 && taiwanHours < 7) {
-        const confirmMsg = `【維護提醒】\n目前為系統維護時間 (00:00 ~ 07:00)，股東e票通可能無法正常登入或投票。\n\n您確定要繼續執行嗎？`;
-        if (!confirm(confirmMsg)) {
-            return;
-        }
-        addLog('警告: 目前為維護時間，操作可能會失敗。', 'error');
+        addLog('系統維護中，請於 7:00~24:00 進行投票！', 'error');
+        return;
     }
 
     // UI State
@@ -128,7 +125,7 @@ copyLogBtn.addEventListener('click', () => {
     const logs = Array.from(logContainer.querySelectorAll('.log-entry'))
         .map(entry => entry.textContent)
         .join('\n');
-    
+
     if (logs) {
         navigator.clipboard.writeText(logs).then(() => {
             const originalText = copyLogBtn.textContent;
