@@ -105,7 +105,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
     sendProgress({
       id: { current: i, total: ids.length },
       vote: { current: 0, total: 0 },
-      screenshot: { current: 0, total: 0 }
+      screenshot: { current: 0, total: 0 },
     });
 
     try {
@@ -138,7 +138,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
       sendProgress({
         id: { current: i + 1, total: ids.length },
         vote: { current: currentVote, total: totalVotes },
-        screenshot: { current: currentShot, total: totalShots }
+        screenshot: { current: currentShot, total: totalShots },
       });
 
       for (let j = 0; j < targetCodes.length; j++) {
@@ -153,7 +153,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
           sendProgress({
             id: { current: i + 1, total: ids.length },
             vote: { current: currentVote, total: totalVotes },
-            screenshot: { current: currentShot, total: totalShots }
+            screenshot: { current: currentShot, total: totalShots },
           });
           continue;
         }
@@ -172,7 +172,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
             sendProgress({
               id: { current: i + 1, total: ids.length },
               vote: { current: currentVote, total: totalVotes },
-              screenshot: { current: currentShot, total: totalShots }
+              screenshot: { current: currentShot, total: totalShots },
             });
 
             sendLog('[導航] 準備返回查詢頁面...');
@@ -199,7 +199,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
               sendProgress({
                 id: { current: i + 1, total: ids.length },
                 vote: { current: currentVote, total: totalVotes },
-                screenshot: { current: currentShot, total: totalShots }
+                screenshot: { current: currentShot, total: totalShots },
               });
             }
           }
@@ -212,7 +212,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
           sendProgress({
             id: { current: i + 1, total: ids.length },
             vote: { current: currentVote, total: totalVotes },
-            screenshot: { current: currentShot, total: totalShots }
+            screenshot: { current: currentShot, total: totalShots },
           });
 
         } catch (procError) {

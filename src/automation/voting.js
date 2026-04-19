@@ -1,5 +1,5 @@
 /**
- * 投票自動化邏輯
+ * Voting automation logic
  */
 const { randomDelay, waitForNavigation } = require('./utils');
 
@@ -131,7 +131,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
       (async () => {
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         
-        // 1. 檢查是否在確認頁面 (送出按鈕)
+        // 1. Check if on confirmation page (submit button)
         const submitBtn = Array.from(document.querySelectorAll('button')).find(el => 
             el.getAttribute('onclick')?.includes('voteObj.checkMeetingPartner()')
         ) || Array.from(document.querySelectorAll('button, a')).find(el => 
@@ -143,7 +143,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
             return { type: 'submit', success: true };
         }
 
-        // 2. 處理選舉議案 (董事/監察人) - 全部贊成/平均分配
+        // 2. Handle election proposals (Directors/Supervisors) - Approve All/Average
         const checkAllBox = document.querySelector('input[name="checkAllCandidates"], #checkAllCandidates1');
         const avgBtn = Array.from(document.querySelectorAll('a')).find(a => a.href?.includes('avarage') || a.href?.includes('average'));
 
@@ -160,7 +160,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
             await sleep(300);
         }
 
-        // 3. 處理一般議案 - 全部贊成
+        // 3. Handle general proposals - Approve All
         let selectedByOptionAll = false;
         if (typeof optionAll === 'function') {
             optionAll(0); // 0 corresponds to "agree"
@@ -182,7 +182,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
 
         await sleep(300);
 
-        // 4. 點擊下一步
+        // 4. Click next step
         const nextBtn = Array.from(document.querySelectorAll('button')).find(el => 
             el.getAttribute('onclick')?.includes('voteObj.checkVote()')
         ) || Array.from(document.querySelectorAll('button, a')).find(el => 
@@ -209,7 +209,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
       sendLog('[投票] 偵測到確認頁面，已點擊送出。');
       await waitNext;
       await randomDelay(300, 600);
-      break; // 投票迴圈結束
+      break; // End of voting loop
     }
     
     sendLog('[投票] 已完成本頁投票，點擊下一步...');
@@ -267,7 +267,7 @@ async function searchAndNavigate(webContents, stockCode, sendLog) {
     
     // Polling for search results (Max ~10s)
     for (let i = 0; i < 20; i++) {
-      await delay(500); // 縮短搜尋結果等待的 polling 時間
+      await delay(500); // Shorten polling delay for search results
       const waitSearchNav = waitForNavigation(webContents, 8000);
       const linkResult = await webContents.executeJavaScript(`
             (() => {

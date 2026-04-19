@@ -27,7 +27,7 @@ async function randomDelay(min = 400, max = 800) {
 async function waitForNavigation(webContents, timeoutMs = 10000) {
   return new Promise((resolve) => {
     let resolved = false;
-    
+
     const timeout = setTimeout(() => {
       if (!resolved) {
         resolved = true;
@@ -48,4 +48,7 @@ async function waitForNavigation(webContents, timeoutMs = 10000) {
   });
 }
 
-module.exports = { randomDelay, waitForNavigation };
+module.exports = {
+  randomDelay,
+  waitForNavigation,
+};

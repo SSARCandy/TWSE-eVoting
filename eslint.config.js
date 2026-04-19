@@ -1,6 +1,6 @@
 module.exports = [
   {
-    ignores: ["dist/**/*", "node_modules/**/*", "assets/**/*"]
+    ignores: ["dist/**/*", "node_modules/**/*", "assets/**/*"],
   },
   {
     languageOptions: {
@@ -17,11 +17,18 @@ module.exports = [
         module: "readonly",
         process: "readonly",
         __dirname: "readonly",
-        Promise: "readonly"
-      }
+        Promise: "readonly",
+      },
     },
     rules: {
-      "indent": ["error", 2]
-    }
+      "indent": ["error", 2],
+      "comma-dangle": ["error", {
+        "arrays": "never",
+        "objects": "always-multiline",
+        "imports": "never",
+        "exports": "always-multiline",
+        "functions": "never",
+      }],
+    },
   }
 ];

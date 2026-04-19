@@ -1,5 +1,5 @@
 /**
- * 登入自動化邏輯
+ * Login automation logic
  */
 
 const CONSTANTS = require('../constants');
@@ -46,11 +46,11 @@ async function execute(webContents, nationalId, sendLog) {
     (async () => {
       const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
       
-      // 預防同步 alert 阻擋執行
+      // Prevent synchronous alert from blocking execution
       window.alert = (msg) => { window.__lastAlertMsg = msg; window.__lastAlert = Date.now(); return true; };
       window.confirm = (msg) => { window.__lastConfirmMsg = msg; window.__lastConfirm = Date.now(); return true; };
       
-      // 1. 選擇券商網路下單憑證
+      // 1. Select broker network order certificate
       const caTypeSelect = document.getElementById('caType');
       if (caTypeSelect) {
         caTypeSelect.value = 'SS'; 
@@ -59,7 +59,7 @@ async function execute(webContents, nationalId, sendLog) {
       }
       await delay(Math.floor(Math.random() * 400) + 400);
 
-      // 2. 填入身分證字號 / 統編
+      // 2. Fill in National ID / Tax ID
       const idInput = document.querySelector('input[placeholder*="身分證"]') || 
                       document.querySelector('input[placeholder*="統編"]') ||
                       document.querySelector('input.required[placeholder*="身分證"]') || 
@@ -78,13 +78,13 @@ async function execute(webContents, nationalId, sendLog) {
       
       await delay(Math.floor(Math.random() * 400) + 400);
 
-      // 3. 點擊登入
+      // 3. Click Login
       const loginBtn = document.getElementById('loginBtn');
       if (!loginBtn) {
         throw new Error('找不到登入按鈕 (預期 ID: loginBtn)');
       }
 
-      // 使用 setTimeout 避免點擊觸發導航時卡住 executeJavaScript Promise
+      // Use setTimeout to prevent click from triggering navigation and blocking executeJavaScript Promise
       setTimeout(() => {
           try { loginBtn.click(); } catch(e) {}
       }, 50);

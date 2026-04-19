@@ -44,7 +44,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    title: '台灣股東會自動投票系統'
+    title: '台灣股東會自動投票系統',
   });
 
   mainWindow.loadFile(path.join(__dirname, 'src/renderer/index.html'));
@@ -69,7 +69,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-    }
+    },
   });
 
   mainWindow.setBrowserView(browserView);
@@ -121,7 +121,7 @@ function setupApplicationMenu() {
           { role: 'unhide' },
           { type: 'separator' },
           { role: 'quit' }
-        ]
+        ],
       }]
       : []),
     {
@@ -137,14 +137,14 @@ function setupApplicationMenu() {
           ? [
             { role: 'pasteAndMatchStyle' },
             { role: 'delete' },
-            { label: '全選 (Select All)', role: 'selectAll' },
+            { label: '全選 (Select All)', role: 'selectAll' }
           ]
           : [
             { label: '刪除 (Delete)', role: 'delete' },
             { type: 'separator' },
             { label: '全選 (Select All)', role: 'selectAll' }
           ])
-      ]
+      ],
     },
     {
       label: '檢視 (View)',
@@ -159,7 +159,7 @@ function setupApplicationMenu() {
             if (browserView) {
               browserView.webContents.toggleDevTools();
             }
-          }
+          },
         },
         { type: 'separator' },
         { label: '實際大小 (Reset Zoom)', role: 'resetZoom' },
@@ -167,7 +167,7 @@ function setupApplicationMenu() {
         { label: '縮小 (Zoom Out)', role: 'zoomOut' },
         { type: 'separator' },
         { label: '切換全螢幕 (Toggle Full Screen)', role: 'togglefullscreen' }
-      ]
+      ],
     },
     {
       label: '關於 (About)',
@@ -179,7 +179,7 @@ function setupApplicationMenu() {
             const pkg = require('./package.json');
             let releaseDate = '未知';
             try {
-              // 在封裝後的 asar 檔案中，package.json 的修改時間即為打包/釋出時間
+              // In the packaged asar file, the package.json modification time serves as the release date
               const stat = require('fs').statSync(require('path').join(__dirname, 'package.json'));
               releaseDate = stat.mtime.toISOString().split('T')[0];
             } catch (e) { }
@@ -190,7 +190,7 @@ function setupApplicationMenu() {
               message: `TWSE Auto eVoting\n\n版本 (Version): ${pkg.version}\n日期 (Release Date): ${releaseDate}`,
               buttons: ['使用說明 (README)', 'GitHub', '作者網站', '關閉'],
               defaultId: 0,
-              cancelId: 3
+              cancelId: 3,
             });
 
             if (response === 0) {
@@ -200,9 +200,9 @@ function setupApplicationMenu() {
             } else if (response === 2) {
               shell.openExternal('https://ssarcandy.tw');
             }
-          }
+          },
         }
-      ]
+      ],
     }
   ];
 
@@ -247,7 +247,7 @@ ipcMain.handle('start-voting', async (event, { ids, outputDir, folderStructure }
 
 ipcMain.handle('select-directory', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory']
+    properties: ['openDirectory'],
   });
   const path = result.canceled ? null : result.filePaths[0];
   return JSON.parse(JSON.stringify(path));
