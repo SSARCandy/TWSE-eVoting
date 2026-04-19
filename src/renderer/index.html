@@ -23,12 +23,18 @@
 
             <section class="config-section">
                 <div class="input-group">
-                    <label for="ids">身分證字號清單 (以逗號分隔)</label>
+                    <label for="ids">
+                        身分證字號清單 (逗號分隔)
+                        <span class="info-icon" data-tooltip="可以輸入多筆身分證字號，請用半形逗號分隔。例如: A123456789,B123456789">i</span>
+                    </label>
                     <textarea id="ids" placeholder="A123456789,A223456789 ..."></textarea>
                 </div>
 
                 <div class="input-group">
-                    <label for="output-dir">輸出資料夾 (截圖儲存路徑)</label>
+                    <label for="output-dir">
+                        截圖儲存路徑
+                        <span class="info-icon" data-tooltip="投票成功後的截圖證明會儲存到這個資料夾下。命名規則: [身分證字號]_[股票代號].png">i</span>
+                    </label>
                     <div class="path-selector">
                         <input type="text" id="output-dir" readonly placeholder="預設: 檔案/投票證明">
                         <button id="browse-btn" class="btn small">瀏覽...</button>
@@ -36,8 +42,13 @@
                 </div>
 
                 <div class="input-group">
-                    <label for="folder-structure">資料夾結構</label>
-                    <select id="folder-structure" class="select-input" style="width: 100%; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background-color: rgba(0, 0, 0, 0.2); color: #fff; font-size: 0.9rem; font-family: 'Noto Sans TC', sans-serif; cursor: pointer;">
+                    <label for="folder-structure">
+                        資料夾結構
+                        <span class="info-icon"
+                            data-tooltip="依身分證字號: 在指定資料夾下分別建立身分證的子資料夾。&#10;扁平化: 所有截圖都放在指定資料夾內。">i</span>
+                    </label>
+                    <select id="folder-structure" class="select-input"
+                        style="width: 100%; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background-color: rgba(0, 0, 0, 0.2); color: #fff; font-size: 0.9rem; font-family: 'Noto Sans TC', sans-serif; cursor: pointer;">
                         <option value="by_id" style="background-color: #16213e; color: #fff;">依身分證字號分子資料夾</option>
                         <option value="flat" style="background-color: #16213e; color: #fff;">扁平化檔案結構 (全部存在同一層)</option>
                     </select>
@@ -100,4 +111,5 @@
     </div>
     <script src="renderer.js"></script>
 </body>
+
 </html>
