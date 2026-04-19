@@ -21,8 +21,7 @@ function isScreenshotExists(nationalId, code, outputDir) {
     
     if (!fs.existsSync(dir)) return false;
 
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const filename = `${nationalId}_${dateStr}_${code}.png`;
+    const filename = `${nationalId}_${code}.png`;
     
     return fs.existsSync(path.join(dir, filename));
 }

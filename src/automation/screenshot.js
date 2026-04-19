@@ -18,8 +18,7 @@ async function execute(webContents, nationalId, company, outputDir) {
     fs.mkdirSync(dir, { recursive: true });
   }
   
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const filename = `${nationalId}_${dateStr}_${company.code}.png`;
+  const filename = `${nationalId}_${company.code}.png`;
   const filepath = path.join(dir, filename);
 
   // Use executeJavaScript to scroll the barcode block into view before capturing
