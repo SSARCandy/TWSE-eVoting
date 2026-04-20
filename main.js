@@ -12,7 +12,7 @@ let stopRequested = false;
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
 
 function getConfig() {
-  const defaultConfig = { outputDir: '', ids: '', folderStructure: 'by_id' };
+  const defaultConfig = { outputDir: '', ids: '', folderStructure: 'by_id', includeCompanyName: false };
   try {
     if (fs.existsSync(CONFIG_PATH)) {
       const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
@@ -224,7 +224,7 @@ app.on('window-all-closed', function () {
 });
 
 // IPC Handlers
-ipcMain.handle('start-voting', async (event, { ids, outputDir, folderStructure }) => {
+ipcMain.handle('start-voting', async (event, { ids, outputDir, folderStructure, includeCompanyName }) => {
   stopRequested = false;
   const automation = require('./src/automation/main_flow');
   try {
@@ -251,7 +251,7 @@ ipcMain.handle('start-voting', async (event, { ids, outputDir, folderStructure }
         }
         mainWindow.setTitle(`(${percent}%) 股東會投票幫手`);
       }
-    }, () => stopRequested, outputDir, folderStructure);
+    }, () => stopRequested, outputDir, folderStructure, includeCompanyName);
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.setTitle('股東會投票幫手');

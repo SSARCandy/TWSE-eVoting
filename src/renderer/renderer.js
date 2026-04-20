@@ -32,7 +32,7 @@ const UI = {
  * App State
  */
 const State = {
-  config: { outputDir: '', ids: '', folderStructure: 'by_id' },
+  config: { outputDir: '', ids: '', folderStructure: 'by_id', includeCompanyName: false },
   saveTimeout: null,
 };
 
@@ -46,6 +46,11 @@ const App = {
     if (State.config.ids) UI.inputs.ids.value = State.config.ids;
     if (State.config.folderStructure) UI.inputs.folderStructure.value = State.config.folderStructure;
     
+    if (State.config.includeCompanyName !== undefined) {
+      const radio = document.querySelector(`input[name="include-company-name"][value="${State.config.includeCompanyName}"]`);
+      if (radio) radio.checked = true;
+    }
+    
     this.bindEvents();
     this.bindIPC();
   },
@@ -53,6 +58,9 @@ const App = {
   bindEvents() {
     UI.inputs.ids.addEventListener('input', this.debouncedSave.bind(this));
     UI.inputs.folderStructure.addEventListener('change', this.debouncedSave.bind(this));
+    document.getElementsByName('include-company-name').forEach(radio => {
+      radio.addEventListener('change', this.debouncedSave.bind(this));
+    });
     UI.buttons.browse.addEventListener('click', this.handleBrowse.bind(this));
     UI.buttons.start.addEventListener('click', this.handleStart.bind(this));
     UI.buttons.stop.addEventListener('click', this.handleStop.bind(this));
@@ -73,6 +81,10 @@ const App = {
     State.saveTimeout = setTimeout(async () => {
       State.config.ids = UI.inputs.ids.value;
       State.config.folderStructure = UI.inputs.folderStructure.value;
+      
+      const checkedRadio = document.querySelector('input[name="include-company-name"]:checked');
+      State.config.includeCompanyName = checkedRadio ? checkedRadio.value === 'true' : false;
+      
       await window.electronAPI.saveConfig(JSON.parse(JSON.stringify(State.config)));
     }, 1000);
   },
@@ -107,7 +119,15 @@ const App = {
 
     try {
       const sanitizedIds = JSON.parse(JSON.stringify(ids));
-      const result = await window.electronAPI.startVoting(sanitizedIds, UI.inputs.outputDir.value || '', UI.inputs.folderStructure.value);
+      const checkedRadio = document.querySelector('input[name="include-company-name"]:checked');
+      const includeCompanyName = checkedRadio ? checkedRadio.value === 'true' : false;
+      
+      const result = await window.electronAPI.startVoting(
+        sanitizedIds, 
+        UI.inputs.outputDir.value || '', 
+        UI.inputs.folderStructure.value,
+        includeCompanyName
+      );
       this.addLog(result.success ? '任務執行完畢' : `任務終止: ${result.error}`, result.success ? 'info' : 'error');
     } catch (err) {
       this.addLog(`系統錯誤: ${err.message}`, 'error');

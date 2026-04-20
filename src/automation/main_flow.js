@@ -14,7 +14,11 @@ function isScreenshotExists(nationalId, code, outputDir, folderStructure = 'by_i
   const dir = folderStructure === 'flat' ? baseDir : path.join(baseDir, nationalId);
 
   if (!fs.existsSync(dir)) return false;
-  return fs.existsSync(path.join(dir, `${nationalId}_${code}.png`));
+
+  // Check if any file starts with [nationalId]_[code] to accommodate optional company name in filename
+  const files = fs.readdirSync(dir);
+  const prefix = `${nationalId}_${code}`;
+  return files.some(f => f.startsWith(prefix));
 }
 
 function isMaintenanceTime() {
@@ -62,8 +66,9 @@ async function navigateBackToList(webContents, sendLog) {
   await randomDelay(300, 600);
 }
 
-async function processCompany(webContents, id, code, context, sendLog, sendProgress) {
-  const { pendingCodes, outputDir, folderStructure, i, idsLength, totalVotes, totalShots } = context;
+async function processCompany(webContents, id, company, context, sendLog, sendProgress) {
+  const { pendingCodes, outputDir, folderStructure, includeCompanyName, i, idsLength, totalVotes, totalShots } = context;
+  const { code } = company;
 
   if (isScreenshotExists(id, code, outputDir, folderStructure)) {
     sendLog(`[清單] 股號 ${code} 已有截圖存檔，跳過。`);
@@ -79,7 +84,7 @@ async function processCompany(webContents, id, code, context, sendLog, sendProgr
 
     if (navResult.type === 'vote') {
       sendLog(`[投票] 偵測到未投票，開始執行投票程序...`);
-      await voting.voteForCompany(webContents, { code, name: '查詢中', rowIndex: 0 }, sendLog, true);
+      await voting.voteForCompany(webContents, company, sendLog, true);
       sendLog(`[投票] ${code} 投票成功。`);
 
       context.currentVote++;
@@ -111,7 +116,7 @@ async function processCompany(webContents, id, code, context, sendLog, sendProgr
     }
 
     sendLog(`[截圖] 正在擷取 ${code} 投票證明...`);
-    const screenshotPath = await screenshot.execute(webContents, id, { code, name: '股東會' }, outputDir, folderStructure);
+    const screenshotPath = await screenshot.execute(webContents, id, company, outputDir, folderStructure, includeCompanyName);
     sendLog(`[截圖] 證明已儲存: ${path.basename(screenshotPath)}`);
 
     context.currentShot++;
@@ -123,7 +128,7 @@ async function processCompany(webContents, id, code, context, sendLog, sendProgr
   }
 }
 
-async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopRequested, outputDir, folderStructure, sessionStats) {
+async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopRequested, outputDir, folderStructure, includeCompanyName, sessionStats) {
   const maskedId = `${id.substring(0, 4)}****${id.substring(8)}`;
 
   sendLog(`[系統] 開始處理身分證: ${maskedId}`);
@@ -143,20 +148,21 @@ async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopR
     sendLog('[清單] 正在抓取公司清單...');
     const companies = await voting.getCompanyList(webContents, sendLog);
 
-    const pendingCodes = companies.filter(c => c.status === 'pending').map(c => c.code);
-    const votedCodes = companies.filter(c => c.status === 'voted').map(c => c.code);
-    const votedNeedScreenshot = votedCodes.filter(code => !isScreenshotExists(id, code, outputDir, folderStructure));
+    const pendingCompanies = companies.filter(c => c.status === 'pending');
+    const votedCompanies = companies.filter(c => c.status === 'voted');
+    const votedNeedScreenshot = votedCompanies.filter(c => !isScreenshotExists(id, c.code, outputDir, folderStructure));
 
-    const targetCodes = [...pendingCodes, ...votedNeedScreenshot];
+    const targetCompanies = [...pendingCompanies, ...votedNeedScreenshot];
 
     const context = {
-      pendingCodes,
+      pendingCodes: pendingCompanies.map(c => c.code),
       outputDir,
       folderStructure,
+      includeCompanyName,
       i,
       idsLength: ids.length,
-      totalVotes: pendingCodes.length,
-      totalShots: targetCodes.length,
+      totalVotes: pendingCompanies.length,
+      totalShots: targetCompanies.length,
       currentVote: 0,
       currentShot: 0,
       sessionStats,
@@ -165,10 +171,10 @@ async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopR
     sendLog(`[清單] 找到 ${context.totalVotes} 家需投票，${votedNeedScreenshot.length} 家需截圖。`);
     sendProgress({ id: { current: i + 1, total: ids.length }, vote: { current: context.currentVote, total: context.totalVotes }, screenshot: { current: context.currentShot, total: context.totalShots } });
 
-    for (const code of targetCodes) {
+    for (const company of targetCompanies) {
       if (isStopRequested()) break;
 
-      await processCompany(webContents, id, code, context, sendLog, sendProgress);
+      await processCompany(webContents, id, company, context, sendLog, sendProgress);
 
       if (!isStopRequested()) await navigateBackToList(webContents, sendLog);
     }
@@ -188,7 +194,7 @@ async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopR
   }
 }
 
-async function run(webContents, ids, sendLog, sendProgress, isStopRequested, outputDir, folderStructure = 'by_id') {
+async function run(webContents, ids, sendLog, sendProgress, isStopRequested, outputDir, folderStructure = 'by_id', includeCompanyName = false) {
   if (isMaintenanceTime()) {
     sendLog('[系統] 目前為系統維護時間 (00:00~07:00)，停止自動作業。', 'error');
     return { voted: 0, screenshoted: 0 };
@@ -201,7 +207,7 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
       sendLog('[系統] 停止請求已被接收，終止執行。');
       break;
     }
-    await processId(webContents, ids[i], i, ids, sendLog, sendProgress, isStopRequested, outputDir, folderStructure, sessionStats);
+    await processId(webContents, ids[i], i, ids, sendLog, sendProgress, isStopRequested, outputDir, folderStructure, includeCompanyName, sessionStats);
   }
 
   return sessionStats;

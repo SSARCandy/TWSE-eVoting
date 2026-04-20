@@ -11,13 +11,20 @@ const { delay } = require('./utils');
  * @param {string} outputDir - The base output directory.
  * @returns {string} The absolute path to the saved screenshot.
  */
-async function execute(webContents, nationalId, company, outputDir, folderStructure = 'by_id') {
+async function execute(webContents, nationalId, company, outputDir, folderStructure = 'by_id', includeCompanyName = false) {
   const baseDir = outputDir || path.join(app.getPath('documents'), '投票證明');
   const dir = folderStructure === 'flat' ? baseDir : path.join(baseDir, nationalId);
   
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   
-  const filename = `${nationalId}_${company.code}.png`;
+  let filename = `${nationalId}_${company.code}`;
+  if (includeCompanyName && company.name) {
+    // Sanitize company name for filesystem
+    const safeName = company.name.replace(/[\\\\/:*?"<>|]/g, '_');
+    filename += `_${safeName}`;
+  }
+  filename += '.png';
+  
   const filepath = path.join(dir, filename);
 
   // Use executeJavaScript to scroll the barcode block into view before capturing
