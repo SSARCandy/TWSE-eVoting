@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "nodemon --watch src --watch main.js --watch preload.js --ext js,html,css --exec electron .",
-    "build:win": "electron-builder --win",
+    "build:win": "cross-env ELECTRON_BUILDER_COMPRESSION_LEVEL=1 electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:all": "electron-builder -mw",
     "lint": "eslint .",
@@ -16,10 +16,11 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "electron": "^30.0.0",
     "electron-builder": "^26.8.1",
     "electron-icon-builder": "^2.0.1",
-    "eslint": "^10.2.1",
+    "eslint": "^9.12.0",
     "nodemon": "^3.1.14"
   },
   "build": {
@@ -46,7 +47,9 @@
       "main.js",
       "preload.js",
       "src/**/*",
-      "assets/**/*"
-    ]
+      "assets/icons/icon.png"
+    ],
+    "asar": true,
+    "compression": "normal"
   }
 }
