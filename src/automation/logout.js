@@ -8,11 +8,9 @@ async function execute(webContents, sendLog) {
 
   const logoutScript = `
     (() => {
-      // Prevent synchronous alert or confirm from blocking execution
-      window.alert = () => { return true; };
-      window.confirm = () => { return true; };
+      window.alert = () => true;
+      window.confirm = () => true;
 
-      // Special case check: if already on "System Reply Message" page
       const doProcessBtn = document.querySelector('button[onclick*="doProcess()"]');
       const isSystemMessagePage = document.querySelector('.c-sysMsg_table') || document.body.innerHTML.includes('SYS_LOGOUT_SUCCESS');
       
@@ -21,7 +19,6 @@ async function execute(webContents, sendLog) {
           return "SYS_MSG_CLICKED";
       }
 
-      // Try to find Logout button
       const logoutBtn = document.querySelector('.c-header_logout') || 
                         document.querySelector('.c-header__logout') ||
                         document.querySelector('div[onclick*="logOff"]') ||
@@ -29,11 +26,17 @@ async function execute(webContents, sendLog) {
                         document.querySelector('.fa-sign-out-alt') ||
                         Array.from(document.querySelectorAll('a, button, div')).find(el => el.innerText.includes('Logout') || el.innerText.includes('登出'));
 
-      if (logoutBtn) {
-        setTimeout(() => {
-            try { logoutBtn.click(); } catch(e) {}
-            
-            // Delay 1 second to handle first level confirmation dialog
+      if (!logoutBtn) {
+        if (doProcessBtn) {
+            setTimeout(() => doProcessBtn.click(), 50);
+            return "SYS_MSG_CLICKED";
+        }
+        return "NOT_FOUND";
+      }
+
+      setTimeout(() => {
+          try { 
+            logoutBtn.click(); 
             setTimeout(() => {
                 try {
                     const confirmBtn = document.getElementById('comfirmDialog_okBtn') || 
@@ -44,53 +47,44 @@ async function execute(webContents, sendLog) {
                     if (typeof window.logOff === 'function') window.logOff();
                 } catch(e) {}
             }, 1000);
-            
-        }, 50);
-        
-        return "LOGOUT_INITIATED";
-      }
+          } catch(e) {}
+      }, 50);
       
-      // If only doProcess button exists without system message features
-      if (doProcessBtn) {
-          setTimeout(() => doProcessBtn.click(), 50);
-          return "SYS_MSG_CLICKED";
-      }
-
-      return "NOT_FOUND";
+      return "LOGOUT_INITIATED";
     })()
   `;
 
   const result = await safeExecute(webContents, logoutScript, 4000);
   
+  if (result === "NOT_FOUND") {
+    sendLog('[系統] 無登出鈕，或已登出。', 'info');
+    return;
+  }
+
   if (result === "SYS_MSG_CLICKED") {
     sendLog('[登出] 完成。');
     await waitForNavigation(webContents, 3000);
-    await randomDelay(300, 500);
-  } else if (result === "LOGOUT_INITIATED" || (typeof result === 'string' && result.includes("ERROR:"))) {
-    sendLog('[登出] 已觸發，待跳轉...');
-    await waitForNavigation(webContents, 5000);
-    
-    // Secondary check after navigation
-    const checkFinalScript = `
-      (() => {
-        const btn = document.querySelector('button[onclick*="doProcess()"]');
-        if (btn) {
-            setTimeout(() => btn.click(), 50);
-            return true;
-        }
-        return false;
-      })()
-    `;
-    const isFinalClicked = await safeExecute(webContents, checkFinalScript, 2000);
-    if (isFinalClicked === true) {
-      sendLog('[登出] 確認完成。');
-      await waitForNavigation(webContents, 3000);
-      await randomDelay(200, 400);
-    }
-  } else if (result === "NOT_FOUND") {
-    sendLog('[系統] 無登出鈕，或已登出。', 'info');
-  } else {
-    sendLog('[警告] 登出異常。', 'warning');
+    return;
+  }
+
+  sendLog('[登出] 已觸發，待跳轉...');
+  await waitForNavigation(webContents, 5000);
+  
+  const checkFinalScript = `
+    (() => {
+      const btn = document.querySelector('button[onclick*="doProcess()"]');
+      if (btn) {
+          setTimeout(() => btn.click(), 50);
+          return true;
+      }
+      return false;
+    })()
+  `;
+  const isFinalClicked = await safeExecute(webContents, checkFinalScript, 2000);
+  if (isFinalClicked === true) {
+    sendLog('[登出] 確認完成。');
+    await waitForNavigation(webContents, 3000);
+    await randomDelay(200, 400);
   }
 }
 

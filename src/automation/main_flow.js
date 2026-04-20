@@ -1,70 +1,10 @@
-const { app } = require('electron');
 const path = require('path');
-const fs = require('fs');
-
 const login = require('./login');
 const voting = require('./voting');
 const screenshot = require('./screenshot');
 const logout = require('./logout');
 const CONSTANTS = require('../constants');
-const { randomDelay, waitForNavigation } = require('./utils');
-
-function isScreenshotExists(nationalId, code, outputDir, folderStructure = 'by_id') {
-  const baseDir = outputDir || path.join(app.getPath('documents'), '投票證明');
-  const dir = folderStructure === 'flat' ? baseDir : path.join(baseDir, nationalId);
-
-  if (!fs.existsSync(dir)) return false;
-
-  // Check if any file starts with [nationalId]_[code] to accommodate optional company name in filename
-  const files = fs.readdirSync(dir);
-  const prefix = `${nationalId}_${code}`;
-  return files.some(f => f.startsWith(prefix));
-}
-
-function isMaintenanceTime() {
-  const taiwanHour = (new Date().getUTCHours() + 8) % 24;
-  return taiwanHour >= 0 && taiwanHour < 7;
-}
-
-async function navigateBackToList(webContents, sendLog) {
-  sendLog('[導航] 返回列表...');
-  const returnListScript = `
-    (() => {
-        const exactBackBtn = document.querySelector('button[name="button2"]') || 
-                             Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Back'));
-        if (exactBackBtn) {
-            exactBackBtn.click();
-            return true;
-        }
-
-        const btns = Array.from(document.querySelectorAll('a, button, input[type="button"], .btn, .c-actBtn'));
-        const backBtn = btns.find(el => {
-            const t = (el.innerText || el.value || '').replace(/\\s+/g, '');
-            return ['回列表', '回未投票', '回清單', '回查詢', '回股東會', '回上頁', '回前頁', '回上一頁', '回首頁'].some(kw => t.includes(kw));
-        });
-        if (backBtn) {
-            backBtn.click();
-            return true;
-        }
-        return false;
-    })()
-  `;
-
-  const waitP = waitForNavigation(webContents, 15000);
-  try {
-    const clickedBack = await webContents.executeJavaScript(returnListScript);
-    if (!clickedBack) {
-      sendLog('[導航] 無回列表鈕，回上頁...');
-      webContents.goBack();
-    }
-  } catch (e) {
-    sendLog(`[導航] 返回失敗: ${e.message}，goBack...`);
-    webContents.goBack();
-  }
-
-  await waitP;
-  await randomDelay(300, 600);
-}
+const { randomDelay, waitForNavigation, isMaintenanceTime, isScreenshotExists } = require('./utils');
 
 async function processCompany(webContents, id, company, context, sendLog, sendProgress) {
   const { pendingCodes, outputDir, folderStructure, includeCompanyName, i, idsLength, totalVotes, totalShots } = context;
@@ -74,7 +14,11 @@ async function processCompany(webContents, id, company, context, sendLog, sendPr
     sendLog(`[清單] ${code} 已有截圖，跳過。`);
     if (pendingCodes.includes(code)) context.currentVote++;
     context.currentShot++;
-    sendProgress({ id: { current: i + 1, total: idsLength }, vote: { current: context.currentVote, total: totalVotes }, screenshot: { current: context.currentShot, total: totalShots } });
+    sendProgress({ 
+      id: { current: i + 1, total: idsLength }, 
+      vote: { current: context.currentVote, total: totalVotes }, 
+      screenshot: { current: context.currentShot, total: totalShots }, 
+    });
     return;
   }
 
@@ -89,7 +33,11 @@ async function processCompany(webContents, id, company, context, sendLog, sendPr
 
       context.currentVote++;
       if (context.sessionStats) context.sessionStats.voted++;
-      sendProgress({ id: { current: i + 1, total: idsLength }, vote: { current: context.currentVote, total: totalVotes }, screenshot: { current: context.currentShot, total: totalShots } });
+      sendProgress({ 
+        id: { current: i + 1, total: idsLength }, 
+        vote: { current: context.currentVote, total: totalVotes }, 
+        screenshot: { current: context.currentShot, total: totalShots }, 
+      });
 
       sendLog('[導航] 返回查詢...');
       const waitGo = waitForNavigation(webContents);
@@ -111,7 +59,11 @@ async function processCompany(webContents, id, company, context, sendLog, sendPr
       sendLog(`[導航] 已投過，在查詢頁...`);
       if (pendingCodes.includes(code)) {
         context.currentVote++;
-        sendProgress({ id: { current: i + 1, total: idsLength }, vote: { current: context.currentVote, total: totalVotes }, screenshot: { current: context.currentShot, total: totalShots } });
+        sendProgress({ 
+          id: { current: i + 1, total: idsLength }, 
+          vote: { current: context.currentVote, total: totalVotes }, 
+          screenshot: { current: context.currentShot, total: totalShots }, 
+        });
       }
     }
 
@@ -121,14 +73,19 @@ async function processCompany(webContents, id, company, context, sendLog, sendPr
 
     context.currentShot++;
     if (context.sessionStats) context.sessionStats.screenshoted++;
-    sendProgress({ id: { current: i + 1, total: idsLength }, vote: { current: context.currentVote, total: totalVotes }, screenshot: { current: context.currentShot, total: totalShots } });
+    sendProgress({ 
+      id: { current: i + 1, total: idsLength }, 
+      vote: { current: context.currentVote, total: totalVotes }, 
+      screenshot: { current: context.currentShot, total: totalShots }, 
+    });
 
   } catch (procError) {
     sendLog(`[錯誤] ${code} 異常: ${procError.message}，下一間。`, 'error');
   }
 }
 
-async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopRequested, outputDir, folderStructure, includeCompanyName, sessionStats) {
+async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopRequested, config, sessionStats) {
+  const { outputDir, folderStructure, includeCompanyName } = config;
   const maskedId = `${id.substring(0, 4)}****${id.substring(8)}`;
 
   sendLog(`[系統] 處理: ${maskedId}`);
@@ -149,9 +106,7 @@ async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopR
     const companies = await voting.getCompanyList(webContents, sendLog);
 
     const pendingCompanies = companies.filter(c => c.status === 'pending');
-    const votedCompanies = companies.filter(c => c.status === 'voted');
-    const votedNeedScreenshot = votedCompanies.filter(c => !isScreenshotExists(id, c.code, outputDir, folderStructure));
-
+    const votedNeedScreenshot = companies.filter(c => c.status === 'voted' && !isScreenshotExists(id, c.code, outputDir, folderStructure));
     const targetCompanies = [...pendingCompanies, ...votedNeedScreenshot];
 
     const context = {
@@ -169,14 +124,18 @@ async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopR
     };
 
     sendLog(`[清單] 需投 ${context.totalVotes}，需截 ${votedNeedScreenshot.length}。`);
-    sendProgress({ id: { current: i + 1, total: ids.length }, vote: { current: context.currentVote, total: context.totalVotes }, screenshot: { current: context.currentShot, total: context.totalShots } });
+    sendProgress({ 
+      id: { current: i + 1, total: ids.length }, 
+      vote: { current: context.currentVote, total: context.totalVotes }, 
+      screenshot: { current: context.currentShot, total: context.totalShots }, 
+    });
 
     for (const company of targetCompanies) {
       if (isStopRequested()) break;
 
       await processCompany(webContents, id, company, context, sendLog, sendProgress);
 
-      if (!isStopRequested()) await navigateBackToList(webContents, sendLog);
+      if (!isStopRequested()) await voting.navigateBackToList(webContents, sendLog);
     }
 
     await logout.execute(webContents, sendLog);
@@ -201,13 +160,14 @@ async function run(webContents, ids, sendLog, sendProgress, isStopRequested, out
   }
 
   const sessionStats = { voted: 0, screenshoted: 0 };
+  const config = { outputDir, folderStructure, includeCompanyName };
 
   for (let i = 0; i < ids.length; i++) {
     if (isStopRequested()) {
       sendLog('[系統] 已收停止請求，終止。');
       break;
     }
-    await processId(webContents, ids[i], i, ids, sendLog, sendProgress, isStopRequested, outputDir, folderStructure, includeCompanyName, sessionStats);
+    await processId(webContents, ids[i], i, ids, sendLog, sendProgress, isStopRequested, config, sessionStats);
   }
 
   return sessionStats;

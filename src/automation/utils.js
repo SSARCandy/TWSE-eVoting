@@ -1,3 +1,7 @@
+const { app } = require('electron');
+const path = require('path');
+const fs = require('fs');
+
 /**
  * Utility functions for automation delays and navigation.
  */
@@ -76,9 +80,34 @@ async function safeExecute(webContents, script, timeoutMs = 3000) {
   }
 }
 
+/**
+ * Checks if the current time is within TDCC maintenance window (00:00 - 07:00 UTC+8).
+ * @returns {boolean}
+ */
+function isMaintenanceTime() {
+  const taiwanHour = (new Date().getUTCHours() + 8) % 24;
+  return taiwanHour >= 0 && taiwanHour < 7;
+}
+
+/**
+ * Checks if a screenshot proof already exists for a given ID and stock code.
+ */
+function isScreenshotExists(nationalId, code, outputDir, folderStructure = 'by_id') {
+  const baseDir = outputDir || path.join(app.getPath('documents'), '投票證明');
+  const dir = folderStructure === 'flat' ? baseDir : path.join(baseDir, nationalId);
+
+  if (!fs.existsSync(dir)) return false;
+
+  const files = fs.readdirSync(dir);
+  const prefix = `${nationalId}_${code}`;
+  return files.some(f => f.startsWith(prefix));
+}
+
 module.exports = {
   delay,
   randomDelay,
   waitForNavigation,
   safeExecute,
+  isMaintenanceTime,
+  isScreenshotExists,
 };

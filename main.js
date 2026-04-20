@@ -2,6 +2,8 @@ const { app, BrowserWindow, BrowserView, ipcMain, shell, Notification, Menu } = 
 const path = require('path');
 const fs = require('fs');
 const pkg = require('./package.json');
+const CONSTANTS = require('./src/constants');
+
 const APP_VERSION = pkg.version;
 
 let mainWindow;
@@ -14,12 +16,15 @@ app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 function getConfig() {
   const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
   const defaultConfig = { outputDir: '', ids: '', folderStructure: 'by_id', includeCompanyName: false };
+  if (!fs.existsSync(CONFIG_PATH)) return defaultConfig;
+
   try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      return { ...defaultConfig, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) };
-    }
-  } catch (e) {}
-  return defaultConfig;
+    const data = fs.readFileSync(CONFIG_PATH, 'utf8');
+    return { ...defaultConfig, ...JSON.parse(data) };
+  } catch (e) {
+    console.error('Failed to read config:', e);
+    return defaultConfig;
+  }
 }
 
 function saveConfig(config) {
@@ -27,7 +32,42 @@ function saveConfig(config) {
   try {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
     return true;
-  } catch (e) { return false; }
+  } catch (e) {
+    console.error('Failed to save config:', e);
+    return false;
+  }
+}
+
+const handleDevToolsShortcut = (targetWebContents) => (event, input) => {
+  if (input.type !== 'keyDown') return;
+
+  const isF12 = input.key === 'F12';
+  const isCtrlShiftI = input.key.toLowerCase() === 'i' && (input.control || input.meta) && input.shift;
+  if (isF12 || isCtrlShiftI) {
+    targetWebContents.toggleDevTools();
+    event.preventDefault();
+  }
+};
+
+function createBrowserView() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  browserView = new BrowserView({
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+
+  mainWindow.setBrowserView(browserView);
+  
+  const updateBounds = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const { width, height } = mainWindow.getContentBounds();
+    browserView.setBounds({ x: 450, y: 0, width: width - 450, height: height });
+  };
+
+  updateBounds();
+  mainWindow.on('resize', updateBounds);
+  browserView.webContents.on('before-input-event', handleDevToolsShortcut(browserView.webContents));
+  browserView.webContents.loadURL(CONSTANTS.URLS.LOGIN);
 }
 
 function createWindow() {
@@ -48,40 +88,9 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'src/renderer/index.html'));
-
-  const handleDevToolsShortcut = (targetWebContents) => (event, input) => {
-    if (input.type === 'keyDown') {
-      const isF12 = input.key === 'F12';
-      const isCtrlShiftI = input.key.toLowerCase() === 'i' && (input.control || input.meta) && input.shift;
-      if (isF12 || isCtrlShiftI) {
-        targetWebContents.toggleDevTools();
-        event.preventDefault();
-      }
-    }
-  };
-
   mainWindow.webContents.on('before-input-event', handleDevToolsShortcut(mainWindow.webContents));
 
-  setTimeout(() => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    const CONSTANTS = require('./src/constants');
-    
-    browserView = new BrowserView({
-      webPreferences: { nodeIntegration: false, contextIsolation: true },
-    });
-
-    mainWindow.setBrowserView(browserView);
-    const updateBounds = () => {
-      if (!mainWindow || mainWindow.isDestroyed()) return;
-      const { width, height } = mainWindow.getContentBounds();
-      browserView.setBounds({ x: 450, y: 0, width: width - 450, height: height });
-    };
-
-    updateBounds();
-    mainWindow.on('resize', updateBounds);
-    browserView.webContents.on('before-input-event', handleDevToolsShortcut(browserView.webContents));
-    browserView.webContents.loadURL(CONSTANTS.URLS.LOGIN);
-  }, 400);
+  setTimeout(createBrowserView, 400);
 
   app.on('select-client-certificate', (event, webContents, url, list, callback) => {
     event.preventDefault();
@@ -102,44 +111,73 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-ipcMain.handle('get-app-version', () => {
-  return APP_VERSION;
-});
+ipcMain.handle('get-app-version', () => APP_VERSION);
 
-ipcMain.handle('start-voting', async (event, { ids, outputDir, folderStructure, includeCompanyName }) => {
+ipcMain.handle('start-voting', async (event, params) => {
+  const { ids, outputDir, folderStructure, includeCompanyName } = params;
   stopRequested = false;
   const automation = require('./src/automation/main_flow');
-  try {
-    const stats = await automation.run(browserView.webContents, ids, (msg) => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('log', String(msg));
-    }, (progress) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('progress', JSON.parse(JSON.stringify(progress)));
-        const { id, screenshot } = progress;
-        let percent = 0;
-        if (id && id.total > 0) {
-          let base = id.current - (screenshot && screenshot.total > 0 ? 1 : 0);
-          percent = Math.floor(((base + (screenshot ? screenshot.current / screenshot.total : 0)) / id.total) * 100);
-        }
-        mainWindow.setTitle(`(${Math.min(100, Math.max(0, percent))}%) 股東會投票幫手`);
-      }
-    }, () => stopRequested, outputDir, folderStructure, includeCompanyName);
+  
+  const sendLog = (msg) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('log', String(msg));
+  };
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setTitle('股東會投票幫手');
-      if (stats) mainWindow.webContents.send('log', `[系統] 完成。累計投票: ${stats.voted}，累計截圖: ${stats.screenshoted}`);
-      if (!mainWindow.isFocused() && Notification.isSupported()) {
-        new Notification({ title: '投票完成', body: '所有作業已結束。', icon: path.join(__dirname, 'assets/icons/icon.png') }).show();
-      }
+  const sendProgress = (progress) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('progress', JSON.parse(JSON.stringify(progress)));
+    
+    const { id, screenshot } = progress;
+    if (!id || id.total <= 0) return;
+
+    const base = id.current - (screenshot && screenshot.total > 0 ? 1 : 0);
+    const screenshotProgress = screenshot ? screenshot.current / screenshot.total : 0;
+    const percent = Math.floor(((base + screenshotProgress) / id.total) * 100);
+    const safePercent = Math.min(100, Math.max(0, percent));
+    
+    mainWindow.setTitle(`(${safePercent}%) 股東會投票幫手`);
+  };
+
+  try {
+    const stats = await automation.run(
+      browserView.webContents, 
+      ids, 
+      sendLog, 
+      sendProgress, 
+      () => stopRequested, 
+      outputDir, 
+      folderStructure, 
+      includeCompanyName
+    );
+
+    if (!mainWindow || mainWindow.isDestroyed()) return { success: true };
+
+    mainWindow.setTitle('股東會投票幫手');
+    if (stats) {
+      sendLog(`[系統] 完成。累計投票: ${stats.voted}，累計截圖: ${stats.screenshoted}`);
     }
+
+    if (!mainWindow.isFocused() && Notification.isSupported()) {
+      new Notification({ 
+        title: '投票完成', 
+        body: '所有作業已結束。', 
+        icon: path.join(__dirname, 'assets/icons/icon.png'), 
+      }).show();
+    }
+    
     return { success: true };
   } catch (error) {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setTitle('股東會投票幫手');
-      if (!mainWindow.isFocused() && Notification.isSupported()) {
-        new Notification({ title: '投票錯誤', body: error.message, icon: path.join(__dirname, 'assets/icons/icon.png') }).show();
-      }
+    if (!mainWindow || mainWindow.isDestroyed()) return { success: false, error: error.message };
+
+    mainWindow.setTitle('股東會投票幫手');
+    if (!mainWindow.isFocused() && Notification.isSupported()) {
+      new Notification({ 
+        title: '投票錯誤', 
+        body: error.message, 
+        icon: path.join(__dirname, 'assets/icons/icon.png'), 
+      }).show();
     }
+    
     return { success: false, error: error.message };
   }
 });
@@ -152,6 +190,7 @@ ipcMain.handle('select-directory', async () => {
 
 ipcMain.handle('get-config', async () => getConfig());
 ipcMain.handle('save-config', async (event, config) => saveConfig(config));
+
 ipcMain.handle('open-about', async () => {
   const aboutWindow = new BrowserWindow({
     width: 400,
@@ -174,4 +213,7 @@ ipcMain.handle('open-external', async (event, url) => {
   return { success: true };
 });
 
-ipcMain.handle('stop-voting', () => { stopRequested = true; return { success: true }; });
+ipcMain.handle('stop-voting', () => { 
+  stopRequested = true; 
+  return { success: true }; 
+});

@@ -1,7 +1,3 @@
-/**
- * Login automation logic
- */
-
 const CONSTANTS = require('../constants');
 const { waitForNavigation, safeExecute, delay } = require('./utils');
 
@@ -11,26 +7,25 @@ async function execute(webContents, nationalId, sendLog) {
   try {
     await webContents.loadURL(CONSTANTS.URLS.LOGIN);
   } catch (err) {
-    if (err.message.includes('-3') || err.message.includes('ERR_ABORTED')) {
-      sendLog(`[登入] 載入中斷，重試...`, 'warning');
-      await delay(1500);
-      try {
-        await webContents.loadURL(CONSTANTS.URLS.LOGIN);
-      } catch (retryErr) {
-        sendLog(`[登入] 重試失敗: ${retryErr.message}`, 'error');
-        return false;
-      }
-    } else {
+    if (!err.message.includes('-3') && !err.message.includes('ERR_ABORTED')) {
       sendLog(`[登入] 載入失敗: ${err.message}`, 'error');
+      return false;
+    }
+
+    sendLog(`[登入] 載入中斷，重試...`, 'warning');
+    await delay(1500);
+    try {
+      await webContents.loadURL(CONSTANTS.URLS.LOGIN);
+    } catch (retryErr) {
+      sendLog(`[登入] 重試失敗: ${retryErr.message}`, 'error');
       return false;
     }
   }
   
-  // Faster proactive check for existence of key element
   const readyScript = `
     (async () => {
       const delay = (ms) => new Promise(r => setTimeout(r, ms));
-      for (let i = 0; i < 20; i++) { // Max 10s total
+      for (let i = 0; i < 20; i++) {
         if (document.getElementById('caType') || document.getElementById('pageIdNo')) return true;
         await delay(500);
       }
@@ -38,22 +33,16 @@ async function execute(webContents, nationalId, sendLog) {
     })()
   `;
   const ready = await safeExecute(webContents, readyScript, 12000);
-
-  if (ready !== true) {
-    sendLog('[警告] 載入慢，稍候...', 'warning');
-  }
+  if (ready !== true) sendLog('[警告] 載入慢，稍候...', 'warning');
 
   sendLog('[登入] 填寫資訊...');
 
   const loginScript = `
     (async () => {
       const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-      
-      // Prevent synchronous alert from blocking execution
       window.alert = (msg) => { window.__lastAlertMsg = msg; window.__lastAlert = Date.now(); return true; };
       window.confirm = (msg) => { window.__lastConfirmMsg = msg; window.__lastConfirm = Date.now(); return true; };
       
-      // 1. Select broker network order certificate
       const caTypeSelect = document.getElementById('caType');
       if (caTypeSelect) {
         caTypeSelect.value = 'SS'; 
@@ -62,7 +51,6 @@ async function execute(webContents, nationalId, sendLog) {
       }
       await delay(Math.floor(Math.random() * 400) + 400);
 
-      // 2. Fill in National ID / Tax ID
       const idInput = document.querySelector('input[placeholder*="身分證"]') || 
                       document.querySelector('input[placeholder*="統編"]') ||
                       document.querySelector('input.required[placeholder*="身分證"]') || 
@@ -70,9 +58,7 @@ async function execute(webContents, nationalId, sendLog) {
                       document.getElementById('idNo') ||
                       document.querySelector('input[name="idNo"]');
       
-      if (!idInput) {
-        throw new Error('找不到身分證/統編輸入框');
-      }
+      if (!idInput) throw new Error('找不到身分證/統編輸入框');
 
       idInput.focus();
       await delay(Math.floor(Math.random() * 100) + 100);
@@ -81,37 +67,25 @@ async function execute(webContents, nationalId, sendLog) {
       
       await delay(Math.floor(Math.random() * 400) + 400);
 
-      // 3. Click Login
       const loginBtn = document.getElementById('loginBtn');
-      if (!loginBtn) {
-        throw new Error('找不到登入按鈕 (預期 ID: loginBtn)');
-      }
+      if (!loginBtn) throw new Error('找不到登入按鈕');
 
-      // Use setTimeout to prevent click from triggering navigation and blocking executeJavaScript Promise
-      setTimeout(() => {
-          try { loginBtn.click(); } catch(e) {}
-      }, 50);
-      
+      setTimeout(() => { try { loginBtn.click(); } catch(e) {} }, 50);
       return true;
     })()
   `;
 
   try {
     const success = await safeExecute(webContents, loginScript, 4000);
-    
-    // If it returns ERROR: TIMEOUT or ERROR: context destroyed, it means navigation started or alert popped up.
     if (typeof success === 'string' && success.includes('ERROR:') && !success.includes('TIMEOUT') && !success.includes('destroyed')) {
       sendLog('[警告] 填寫異常。', 'warning');
     }
 
-    // Wait for navigation or potential "Duplicate Login" dialog. It resolves instantly if navigation finishes.
     await waitForNavigation(webContents, 3000);
 
-    // 4. Handle any popup if it appears (e.g. "Duplicate Login", "No pending votes")
     const handleLoginDialog = `
       (async () => {
         const delay = (ms) => new Promise(r => setTimeout(r, ms));
-        
         for (let i = 0; i < 6; i++) {
           if (window.__lastAlert || window.__lastConfirm) {
             const msg = window.__lastAlertMsg || window.__lastConfirmMsg || "NATIVE_DIALOG";
@@ -126,21 +100,17 @@ async function execute(webContents, nationalId, sendLog) {
                             );
           
           if (hasDialog) {
-            const specificBtn = document.getElementById('comfirmDialog_okBtn') || document.getElementById('confirmDialog_okBtn');
-            if (specificBtn) {
-              setTimeout(() => specificBtn.click(), 50);
-              return "DOM_MODAL_CLICKED_BY_ID";
-            }
-
-            const okBtn = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], .swal2-confirm, .btn-primary'))
-              .find(el => {
-                const text = (el.innerText || el.value || "").trim();
-                return ['確認', '確定', 'OK'].some(kw => text.includes(kw)) || text === 'OK';
-              });
+            const okBtn = document.getElementById('comfirmDialog_okBtn') || 
+                          document.getElementById('confirmDialog_okBtn') ||
+                          Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], .swal2-confirm, .btn-primary'))
+                            .find(el => {
+                              const text = (el.innerText || el.value || "").trim();
+                              return ['確認', '確定', 'OK'].some(kw => text.includes(kw)) || text === 'OK';
+                            });
             
             if (okBtn) {
               setTimeout(() => okBtn.click(), 50);
-              return "DOM_MODAL_CLICKED_BY_TEXT";
+              return "DOM_MODAL_CLICKED";
             }
           }
           await delay(500);
@@ -156,7 +126,7 @@ async function execute(webContents, nationalId, sendLog) {
       sendLog('[登入] 偵測提示，已點選。');
       await waitForNavigation(webContents, 3000);
     } else if (resultStr !== "NO_DIALOG_FOUND" && !resultStr.startsWith("ERROR: TIMEOUT") && !resultStr.includes('destroyed')) {
-      sendLog('[警告] 提示處理異常。', 'warning');
+      sendLog('[警告] 登入對話框異常', 'warning');
     }
     
     let currentUrl = webContents.getURL();
@@ -171,10 +141,7 @@ async function execute(webContents, nationalId, sendLog) {
       await webContents.loadURL(CONSTANTS.URLS.INDEX);
       await delay(3000);
       currentUrl = webContents.getURL();
-        
-      if (currentUrl.includes('login') && !currentUrl.includes('index')) {
-        return false;
-      }
+      if (currentUrl.includes('login') && !currentUrl.includes('index')) return false;
     }
     
     return true;

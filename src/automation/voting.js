@@ -49,7 +49,7 @@ async function getCompanyList(webContents, sendLog) {
         
         for (const btn of validNextBtns) {
             const img = btn.querySelector('img');
-            if (img && img.src.includes('011')) continue; // likely disabled
+            if (img && img.src.includes('011')) continue; 
             
             btn.click();
             clickedNext = true;
@@ -60,15 +60,15 @@ async function getCompanyList(webContents, sendLog) {
       })()
     `);
 
+    if (!pageData || !pageData.list) break;
+
     let addedCount = 0;
-    if (pageData && pageData.list) {
-      for (const comp of pageData.list) {
-        if (!allCompaniesMap.has(comp.code)) {
-          allCompaniesMap.set(comp.code, comp);
-          addedCount++;
-        }
+    pageData.list.forEach(comp => {
+      if (!allCompaniesMap.has(comp.code)) {
+        allCompaniesMap.set(comp.code, comp);
+        addedCount++;
       }
-    }
+    });
 
     if (addedCount === 0) break;
 
@@ -95,17 +95,14 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
       (() => {
           const row = document.querySelectorAll('tr')[${company.rowIndex}];
           if (!row) return false;
-          
           const voteLink = Array.from(row.querySelectorAll('a.c-actLink')).find(a => a.innerText.includes('投票'));
           if (!voteLink) return false;
-          
           voteLink.click();
           return true;
       })()
     `);
 
     if (!clickResult) throw new Error('無法找到或點擊投票按鈕');
-
     await waitClick;
     await randomDelay(1500, 2500);
   }
@@ -122,8 +119,6 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
     const pageScript = `
       (async () => {
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-        
-        // 1. Check if on confirmation page (submit button)
         const submitBtn = Array.from(document.querySelectorAll('button')).find(el => 
             el.getAttribute('onclick')?.includes('voteObj.checkMeetingPartner()')
         ) || Array.from(document.querySelectorAll('button, a')).find(el => 
@@ -135,15 +130,12 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
             return { type: 'submit', success: true };
         }
 
-        // 2. Handle election proposals (Directors/Supervisors) - Approve All/Average
         const checkAllBox = document.querySelector('input[name="checkAllCandidates"], #checkAllCandidates1');
         const avgBtn = Array.from(document.querySelectorAll('a')).find(a => a.href?.includes('avarage') || a.href?.includes('average'));
-
         if (checkAllBox || avgBtn) {
             if (checkAllBox) {
                 checkAllBox.click();
                 if (typeof doCheckAll === 'function') doCheckAll(1);
-                await sleep(100);
             }
             if (avgBtn) {
                 avgBtn.click();
@@ -152,29 +144,18 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
             await sleep(300);
         }
 
-        // 3. Handle general proposals - Approve All
-        let selectedByOptionAll = false;
         if (typeof optionAll === 'function') {
-            optionAll(0); // 0 corresponds to "agree"
-            selectedByOptionAll = true;
-        }
-
-        if (!selectedByOptionAll) {
+            optionAll(0);
+        } else {
             const groups = new Set();
             document.querySelectorAll('input[type="radio"]').forEach(r => groups.add(r.name));
-            
-            for (const groupName of groups) {
-                // targetValue = '1' corresponds to agree/for in most generic voting radios
+            groups.forEach(groupName => {
                 const radio = document.querySelector(\`input[name="\${groupName}"][value="1"]\`);
-                if (radio) {
-                    radio.click();
-                }
-            }
+                if (radio) radio.click();
+            });
         }
-
         await sleep(300);
 
-        // 4. Click next step
         const nextBtn = Array.from(document.querySelectorAll('button')).find(el => 
             el.getAttribute('onclick')?.includes('voteObj.checkVote()')
         ) || Array.from(document.querySelectorAll('button, a')).find(el => 
@@ -192,14 +173,13 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
 
     const waitNext = waitForNavigation(webContents, 10000);
     const result = await webContents.executeJavaScript(pageScript);
-
     if (!result.success) throw new Error(result.reason || '頁面處理失敗');
 
     if (result.type === 'submit') {
       sendLog('[投票] 偵測確認頁，點擊送出。');
       await waitNext;
       await randomDelay(1500, 3000);
-      break; // End of voting loop
+      break; 
     }
 
     sendLog('[投票] 本頁完成，點擊下一步...');
@@ -207,9 +187,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
     await randomDelay(1500, 3000);
   }
 
-  if (pageCount >= maxPages) {
-    throw new Error(`超過最大頁數限制 (${maxPages})，可能發生無窮迴圈。`);
-  }
+  if (pageCount >= maxPages) throw new Error(`超過最大頁數限制 (${maxPages})`);
 
   const finalCheck = await webContents.executeJavaScript(`
     (() => {
@@ -217,10 +195,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false) 
         return ['成功', '完成', '已收'].some(kw => text.includes(kw));
     })()
   `);
-
-  if (!finalCheck) {
-    sendLog(`[警告] 結果不明，請檢查截圖。`, 'warning');
-  }
+  if (!finalCheck) sendLog(`[警告] 結果不明，請檢查截圖。`, 'warning');
 
   return true;
 }
@@ -234,19 +209,15 @@ async function searchAndNavigate(webContents, stockCode, sendLog) {
       const input = document.querySelector('body > div.c-main > div.c-votelist > form > div > fieldset.c-voteform__fieldset.o-fieldset.u-float--left > input') || 
                     document.querySelector('div.c-votelist input') ||
                     document.querySelector('input#searchQuery');
-      
       const btn = document.querySelector('body > div.c-main > div.c-votelist > form > div > fieldset.c-voteform__fieldset.o-fieldset.u-float--left > a') ||
                   document.querySelector('.c-actIcon--search') ||
                   document.querySelector('a.search-btn');
-
       if (!input || !btn) return { success: false, reason: '找不到搜尋元件' };
-
       input.focus();
       input.value = '${stockCode}';
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
       btn.click();
-      
       return { success: true };
     })()
   `;
@@ -255,19 +226,16 @@ async function searchAndNavigate(webContents, stockCode, sendLog) {
     const result = await webContents.executeJavaScript(searchScript);
     if (!result.success) throw new Error(result.reason);
 
-    // Polling for search results (Max ~10s)
     for (let i = 0; i < 20; i++) {
-      await delay(500); // Shorten polling delay for search results
+      await delay(500); 
       const waitSearchNav = waitForNavigation(webContents, 8000);
       const linkResult = await webContents.executeJavaScript(`
             (() => {
                 const rows = Array.from(document.querySelectorAll('tr')).filter(row => row.innerText.includes('${stockCode}'));
                 if (rows.length === 0) return null;
-                
                 const link = Array.from(rows[0].querySelectorAll('a.c-actLink, a.u-link')).find(a => 
                     ['投票', '查詢', 'Vote', 'Check'].some(kw => a.innerText.includes(kw))
                 );
-                
                 if (link) {
                     const type = ['投票', 'Vote'].some(kw => link.innerText.includes(kw)) ? 'vote' : 'query';
                     link.click();
@@ -291,8 +259,50 @@ async function searchAndNavigate(webContents, stockCode, sendLog) {
   }
 }
 
+/**
+ * Navigates back to the main company list page.
+ */
+async function navigateBackToList(webContents, sendLog) {
+  sendLog('[導航] 返回列表...');
+  const returnListScript = `
+    (() => {
+        const exactBackBtn = document.querySelector('button[name="button2"]') || 
+                             Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Back'));
+        if (exactBackBtn) {
+            exactBackBtn.click();
+            return true;
+        }
+        const backBtn = Array.from(document.querySelectorAll('a, button, input[type="button"], .btn, .c-actBtn')).find(el => {
+            const t = (el.innerText || el.value || '').replace(/\\s+/g, '');
+            return ['回列表', '回未投票', '回清單', '回查詢', '回股東會', '回上頁', '回前頁', '回上一頁', '回首頁'].some(kw => t.includes(kw));
+        });
+        if (backBtn) {
+            backBtn.click();
+            return true;
+        }
+        return false;
+    })()
+  `;
+
+  const waitP = waitForNavigation(webContents, 15000);
+  try {
+    const clickedBack = await webContents.executeJavaScript(returnListScript);
+    if (!clickedBack) {
+      sendLog('[導航] 無回列表鈕，回上頁...');
+      webContents.goBack();
+    }
+  } catch (e) {
+    sendLog(`[導航] 返回失敗: ${e.message}，goBack...`);
+    webContents.goBack();
+  }
+
+  await waitP;
+  await randomDelay(300, 600);
+}
+
 module.exports = {
   getCompanyList,
   voteForCompany,
   searchAndNavigate,
+  navigateBackToList,
 };
