@@ -193,7 +193,7 @@ h1 {
     content: attr(data-tooltip);
     position: absolute;
     bottom: 150%;
-    left: -40px;
+    left: -70px;
     /* Fixed offset that keeps the tooltip nicely contained within the 410px space */
     right: auto;
     background-color: #334155;
@@ -203,7 +203,7 @@ h1 {
     font-size: 12px;
     font-weight: normal;
     width: max-content;
-    max-width: 260px;
+    max-width: 290px;
     white-space: pre-line;
     word-break: break-word;
     /* Ensure long words wrap */
