@@ -82,6 +82,7 @@ jobs:
           name: "Nightly Build"
           body: "Automated nightly build for commit ${{ github.sha }}"
           prerelease: true
+          make_latest: true
           files: |
             dist/*.exe
             dist/*.dmg
