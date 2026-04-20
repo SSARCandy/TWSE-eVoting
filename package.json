@@ -1,6 +1,6 @@
 {
   "name": "twse-auto-evoting",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "股東會投票幫手",
   "main": "main.js",
   "scripts": {
