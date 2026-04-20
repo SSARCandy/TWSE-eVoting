@@ -1,5 +1,6 @@
-const { app, BrowserWindow, BrowserView, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, shell, Notification, Menu } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const pkg = require('./package.json');
 const APP_VERSION = pkg.version;
 
@@ -11,8 +12,6 @@ let stopRequested = false;
 app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 function getConfig() {
-  const path = require('path');
-  const fs = require('fs');
   const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
   const defaultConfig = { outputDir: '', ids: '', folderStructure: 'by_id', includeCompanyName: false };
   try {
@@ -24,8 +23,6 @@ function getConfig() {
 }
 
 function saveConfig(config) {
-  const path = require('path');
-  const fs = require('fs');
   const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
   try {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
@@ -34,7 +31,6 @@ function saveConfig(config) {
 }
 
 function createWindow() {
-  const path = require('path');
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -95,7 +91,6 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-  const { Menu } = require('electron');
   Menu.setApplicationMenu(null);
 
   app.on('activate', () => {
@@ -112,7 +107,6 @@ ipcMain.handle('get-app-version', () => {
 });
 
 ipcMain.handle('start-voting', async (event, { ids, outputDir, folderStructure, includeCompanyName }) => {
-  const { Notification } = require('electron');
   stopRequested = false;
   const automation = require('./src/automation/main_flow');
   try {
