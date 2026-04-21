@@ -135,12 +135,12 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
             return { type: 'submit', success: true };
         }
 
-        const checkAllBox = document.querySelector('input[name="checkAllCandidates"], #checkAllCandidates1');
+        const firstCandidateBox = document.querySelector('#chb1');
         const avgBtn = Array.from(document.querySelectorAll('a')).find(a => a.href?.includes('avarage') || a.href?.includes('average'));
-        if (checkAllBox || avgBtn) {
-            if (checkAllBox) {
-                checkAllBox.click();
-                if (typeof doCheckAll === 'function') doCheckAll(1);
+        
+        if (firstCandidateBox || avgBtn) {
+            if (firstCandidateBox && !firstCandidateBox.checked) {
+                firstCandidateBox.click();
             }
             if (avgBtn) {
                 avgBtn.click();
