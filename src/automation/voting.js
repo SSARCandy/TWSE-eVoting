@@ -26,9 +26,27 @@ async function getCompanyList(webContents, sendLog) {
             const cells = row.querySelectorAll('td');
             if (cells.length < 1) return null;
             
-            const companyInfo = cells[0].innerText.trim().split(/\\s+/);
-            const code = companyInfo[0];
-            const name = companyInfo.length > 1 ? companyInfo.slice(1).join(' ') : '未知公司';
+            // Prefer hidden input for accuracy (handles English names better)
+            // Search row-wide for the input
+            const nameInput = row.querySelector('input[id^="stockName_"]');
+            let code, name;
+            
+            if (nameInput) {
+                name = nameInput.value.trim();
+                code = nameInput.id.replace('stockName_', '');
+            } else {
+                const text = cells[0].innerText.trim();
+                // Match at least 4 digits at start, then optional separator, then name
+                const match = text.match(/^(\\d{4,})(?:\\s+|(?=[^\\d]))(.*)$/s);
+                if (match) {
+                    code = match[1];
+                    name = match[2].trim() || '未知公司';
+                } else {
+                    const companyInfo = text.split(/\\s+/);
+                    code = companyInfo[0];
+                    name = companyInfo.length > 1 ? companyInfo.slice(1).join(' ') : '未知公司';
+                }
+            }
             
             const links = Array.from(row.querySelectorAll('a.c-actLink, a.u-link'));
             const hasVote = links.some(a => ['投票', 'Vote'].some(kw => a.innerText.includes(kw)));

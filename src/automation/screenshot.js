@@ -14,13 +14,20 @@ const { delay } = require('./utils');
 function formatFilename(pattern, nationalId, company) {
   if (!pattern) pattern = '{id}_{code}';
 
-  // Sanitize company name for filesystem (remove \/:*?"<>| and control characters)
-  const safeName = (company.name || '').replace(/[\\\\/:*?"<>|\\x00-\\x1F\\x7F]/g, '_');
+  // Sanitize company name: replace forbidden chars and whitespace with underscores
+  let safeName = (company.name || '')
+    .trim()
+    .replace(/[\\/:*?"<>| \t\n\r\f\v\x00-\x1F\x7F]/g, '_');
+
+  // Replace multiple internal underscores with a single one for cleaner names
+  safeName = safeName.replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+
+  const nameToUse = safeName || 'noname';
 
   return pattern
-    .replace(/{id}/g, nationalId)
-    .replace(/{code}/g, company.code)
-    .replace(/{name}/g, safeName);
+    .replace(/{id}/g, nationalId || 'unknown')
+    .replace(/{code}/g, company.code || 'unknown')
+    .replace(/{name}/g, nameToUse);
 }
 
 /**
