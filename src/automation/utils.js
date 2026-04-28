@@ -35,10 +35,10 @@ function randomDelay(min = 400, max = 800) {
  * bottleneck the script.
  * 
  * @param {object} webContents The Electron WebContents instance
- * @param {number} timeoutMs Maximum time to wait before timing out (defaults to 10s)
+ * @param {number} timeoutMs Maximum time to wait before timing out (defaults to 30s)
  * @returns {Promise<boolean>} True if loaded successfully, false if timed out
  */
-function waitForNavigation(webContents, timeoutMs = 10000) {
+function waitForNavigation(webContents, timeoutMs = 30000) {
   return new Promise((resolve) => {
     let resolved = false;
 
@@ -102,16 +102,16 @@ function isScreenshotExists(nationalId, company, outputDir, folderStructure = 'b
   if (!fs.existsSync(dir)) return false;
 
   const code = typeof company === 'string' ? company : company.code;
-  
+
   // Performance: cache directory file list per execution loop
   if (!dirCache.has(dir)) {
     dirCache.set(dir, fs.readdirSync(dir));
     // Clear cache after a short delay to ensure fresh data for next run but fast for current loop
     setTimeout(() => dirCache.delete(dir), 5000);
   }
-  
+
   const files = dirCache.get(dir);
-  
+
   // Fuzzy match: check if segments (split by _) match both nationalId AND company code exactly
   return files.some(file => {
     if (!file.endsWith('.png')) return false;

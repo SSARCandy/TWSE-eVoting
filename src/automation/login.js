@@ -81,7 +81,7 @@ async function execute(webContents, nationalId, sendLog) {
       sendLog('[警告] 填寫異常。', 'warning');
     }
 
-    await waitForNavigation(webContents, 3000);
+    await waitForNavigation(webContents);
 
     const handleLoginDialog = `
       (async () => {
@@ -124,7 +124,7 @@ async function execute(webContents, nationalId, sendLog) {
     
     if (resultStr.startsWith("DOM_MODAL_CLICKED") || resultStr.startsWith("NATIVE_DIALOG_CAPTURED")) {
       sendLog('[登入] 偵測提示，已點選。');
-      await waitForNavigation(webContents, 3000);
+      await waitForNavigation(webContents);
     } else if (resultStr !== "NO_DIALOG_FOUND" && !resultStr.startsWith("ERROR: TIMEOUT") && !resultStr.includes('destroyed')) {
       sendLog('[警告] 登入對話框異常', 'warning');
     }
@@ -139,7 +139,7 @@ async function execute(webContents, nationalId, sendLog) {
     if (currentUrl.includes('login') && !currentUrl.includes('index')) {
       sendLog('[警告] 未跳轉，手動導航...', 'warning');
       await webContents.loadURL(CONSTANTS.URLS.INDEX);
-      await delay(3000);
+      await delay(30000);
       currentUrl = webContents.getURL();
       if (currentUrl.includes('login') && !currentUrl.includes('index')) return false;
     }

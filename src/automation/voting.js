@@ -93,7 +93,7 @@ async function getCompanyList(webContents, sendLog) {
     hasNextPage = pageData.hasNext;
     if (hasNextPage) {
       pageNum++;
-      await waitForNavigation(webContents, 6000);
+      await waitForNavigation(webContents);
       await randomDelay(1500, 2500);
     }
   }
@@ -194,7 +194,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
       })()
     `;
 
-    const waitNext = waitForNavigation(webContents, 10000);
+    const waitNext = waitForNavigation(webContents);
     const result = await webContents.executeJavaScript(pageScript);
     if (!result.success) throw new Error(result.reason || '頁面處理失敗');
 
@@ -255,7 +255,7 @@ async function searchAndNavigate(webContents, stockCode, sendLog) {
 
     for (let i = 0; i < 20; i++) {
       await delay(500); 
-      const waitSearchNav = waitForNavigation(webContents, 8000);
+      const waitSearchNav = waitForNavigation(webContents);
       const linkResult = await webContents.executeJavaScript(`
             (() => {
                 const rows = Array.from(document.querySelectorAll('tr')).filter(row => row.innerText.includes('${stockCode}'));
@@ -311,7 +311,7 @@ async function navigateBackToList(webContents, sendLog) {
     })()
   `;
 
-  const waitP = waitForNavigation(webContents, 15000);
+  const waitP = waitForNavigation(webContents);
   try {
     const clickedBack = await webContents.executeJavaScript(returnListScript);
     if (!clickedBack) {

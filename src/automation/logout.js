@@ -63,12 +63,12 @@ async function execute(webContents, sendLog) {
 
   if (result === "SYS_MSG_CLICKED") {
     sendLog('[登出] 完成。');
-    await waitForNavigation(webContents, 3000);
+    await waitForNavigation(webContents);
     return;
   }
 
   sendLog('[登出] 已觸發，待跳轉...');
-  await waitForNavigation(webContents, 5000);
+  await waitForNavigation(webContents);
   
   const checkFinalScript = `
     (() => {
@@ -83,7 +83,7 @@ async function execute(webContents, sendLog) {
   const isFinalClicked = await safeExecute(webContents, checkFinalScript, 2000);
   if (isFinalClicked === true) {
     sendLog('[登出] 確認完成。');
-    await waitForNavigation(webContents, 3000);
+    await waitForNavigation(webContents);
     await randomDelay(200, 400);
   }
 }
