@@ -67,7 +67,12 @@ async function processCompany(webContents, id, company, context, sendLog, emitPr
     if (isStopRequested()) return;
     sendLog(`[截圖] 擷取 ${code} 證明...`);
     const screenshotPath = await screenshot.execute(webContents, id, company, outputDir, folderStructure, filenamePattern);
-    sendLog(`[截圖] 已存: ${path.basename(screenshotPath)}`);
+    
+    if (screenshotPath) {
+      sendLog(`[截圖] 已存: ${path.basename(screenshotPath)}`);
+    } else {
+      sendLog(`[截圖] 無條碼，跳過 ${code}。`, 'error');
+    }
 
     context.currentShot++;
     sessionStats.screenshoted++;

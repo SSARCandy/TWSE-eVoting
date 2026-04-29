@@ -50,17 +50,26 @@ async function execute(webContents, nationalId, company, outputDir, folderStruct
   const filepath = path.join(dir, filename);
 
   // Use executeJavaScript to scroll the barcode block into view before capturing
-  await webContents.executeJavaScript(`
+  const barcodeExists = await webContents.executeJavaScript(`
     (() => {
       const barcodeContainer = document.querySelector('.is-warning') || 
                                document.querySelector('#barCodeAccountNoAndStockId')?.closest('div');
                                
+      const hasBarcode = !!document.querySelector('#barCodeAccountNo, #barCodeStockId, #barCodeAccountNoAndStockId');
+
       if (barcodeContainer) {
         // Use 'instant' instead of 'smooth' to prevent motion blur during capture
         barcodeContainer.scrollIntoView({ behavior: 'instant', block: 'center' });
       }
+
+      return hasBarcode;
     })()
   `);
+
+  if (!barcodeExists) {
+    return null;
+  }
+
 
   // Wait for font rendering to settle after scroll
   await delay(800);
