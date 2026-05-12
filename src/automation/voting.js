@@ -327,10 +327,12 @@ async function navigateBackToList(webContents, sendLog) {
     if (clickedBack) {
       await waitForNavigation(webContents, 8000);
     } else {
-      sendLog('[導航] 無回列表鈕，嘗試回上頁...');
-      const waitP = waitForNavigation(webContents, 5000);
-      webContents.goBack();
-      await waitP;
+      if (!(await isAtListPage(webContents))) {
+        sendLog('[導航] 無回列表鈕，嘗試回上頁...');
+        const waitP = waitForNavigation(webContents, 5000);
+        webContents.goBack();
+        await waitP;
+      }
     }
   } catch (e) {
     sendLog(`[導航] 返回過程異常: ${e.message}`, 'warning');

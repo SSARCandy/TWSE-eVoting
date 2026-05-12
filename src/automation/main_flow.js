@@ -85,6 +85,11 @@ async function processCompany(webContents, id, company, context, sendLog, emitPr
 
   } catch (procError) {
     if (isStopRequested()) return;
+    
+    if (procError.message.includes('NAV_LOST') || procError.message.includes('找不到搜尋元件')) {
+      throw procError; // Propagate fatal errors to trigger account-level retry
+    }
+    
     sendLog(`[錯誤] ${code} 異常: ${procError.message}，下一間。`, 'error');
   }
 }
