@@ -2,6 +2,7 @@
  * Voting automation logic
  */
 const { delay, randomDelay, waitForNavigation } = require('./utils');
+const { URLS } = require('../constants');
 
 /**
  * Grabs the list of companies from the current table.
@@ -238,6 +239,8 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
  * Searches for a specific stock code and clicks the corresponding link.
  */
 async function searchAndNavigate(webContents, stockCode, sendLog) {
+  await ensureOnListPage(webContents, sendLog);
+
   const searchScript = `
     (() => {
       const input = document.querySelector('body > div.c-main > div.c-votelist > form > div > fieldset.c-voteform__fieldset.o-fieldset.u-float--left > input') || 
@@ -300,7 +303,8 @@ async function navigateBackToList(webContents, sendLog) {
   sendLog('[導航] 返回列表...');
   const returnListScript = `
     (() => {
-        const exactBackBtn = document.querySelector('button[name="button2"]') || 
+        const exactBackBtn = document.getElementById('go') ||
+                             document.querySelector('button[name="button2"]') || 
                              Array.from(document.querySelectorAll('button')).find(b => b.innerText.includes('Back'));
         if (exactBackBtn) {
             exactBackBtn.click();
@@ -318,20 +322,73 @@ async function navigateBackToList(webContents, sendLog) {
     })()
   `;
 
-  const waitP = waitForNavigation(webContents);
   try {
     const clickedBack = await webContents.executeJavaScript(returnListScript);
-    if (!clickedBack) {
-      sendLog('[導航] 無回列表鈕，回上頁...');
+    if (clickedBack) {
+      await waitForNavigation(webContents, 8000);
+    } else {
+      sendLog('[導航] 無回列表鈕，嘗試回上頁...');
+      const waitP = waitForNavigation(webContents, 5000);
       webContents.goBack();
+      await waitP;
     }
   } catch (e) {
-    sendLog(`[導航] 返回失敗: ${e.message}，goBack...`);
-    webContents.goBack();
+    sendLog(`[導航] 返回過程異常: ${e.message}`, 'warning');
   }
 
-  await waitP;
-  await randomDelay(300, 600);
+  // Soft check, only force redirect if really lost
+  await ensureOnListPage(webContents, sendLog, false);
+  await randomDelay(200, 400);
+}
+
+/**
+ * Checks if current page is the list page without logging.
+ */
+async function isAtListPage(webContents) {
+  const checkListScript = `
+    (() => {
+      // Basic check for search input or the main list container
+      return !!(
+        document.querySelector('input[id^="stockName_"]') ||
+        document.querySelector('div.c-votelist input') || 
+        document.querySelector('input#searchQuery') ||
+        document.querySelector('body > div.c-main > div.c-votelist > form') ||
+        document.querySelector('table tr a.c-actLink')
+      );
+    })()
+  `;
+  try {
+    return await webContents.executeJavaScript(checkListScript);
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Ensures the browser is on the company list page.
+ * @param {boolean} forceThrow If true, throws NAV_LOST on failure to trigger retry.
+ */
+async function ensureOnListPage(webContents, sendLog, forceThrow = true) {
+  if (await isAtListPage(webContents)) return true;
+
+  // Try one more goBack if not on list
+  const waitP = waitForNavigation(webContents, 4000);
+  webContents.goBack();
+  const success = await waitP;
+  
+  if (success && await isAtListPage(webContents)) return true;
+
+  if (forceThrow) {
+    sendLog('[導航] 遺失列表位置，嘗試強制重新導向...', 'warning');
+    const waitNav = waitForNavigation(webContents, 10000);
+    await webContents.loadURL(URLS.INDEX);
+    await waitNav;
+    
+    if (await isAtListPage(webContents)) return true;
+    throw new Error('NAV_LOST: 無法回到列表頁面');
+  }
+  
+  return false;
 }
 
 module.exports = {
@@ -339,4 +396,5 @@ module.exports = {
   voteForCompany,
   searchAndNavigate,
   navigateBackToList,
+  ensureOnListPage,
 };

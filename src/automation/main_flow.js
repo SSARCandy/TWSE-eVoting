@@ -93,98 +93,131 @@ async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopR
   const { outputDir, folderStructure, filenamePattern } = config;
   const maskedId = `${id.substring(0, 4)}****${id.substring(8)}`;
 
-  const context = {
-    pendingCodes: [],
-    outputDir,
-    folderStructure,
-    filenamePattern,
-    i,
-    idsLength: ids.length,
-    totalVotes: 0,
-    totalShots: 0,
-    currentVote: 0,
-    currentShot: 0,
-    sessionStats,
-  };
+  let retryCount = 0;
+  const maxRetries = 1;
 
-  const emitProgress = (status = 'processing') => {
-    sendProgress({ 
-      id: { current: i + 1, total: ids.length }, 
-      vote: { 
-        current: context.currentVote, 
-        total: context.totalVotes, 
-        globalCurrent: sessionStats.voted, 
-        globalTotal: sessionStats.totalVotes, 
-      }, 
-      screenshot: { 
-        current: context.currentShot, 
-        total: context.totalShots, 
-        globalCurrent: sessionStats.screenshoted, 
-        globalTotal: sessionStats.totalShots, 
-      },
-      status,
-    });
-  };
+  while (retryCount <= maxRetries) {
+    if (isStopRequested()) return;
 
-  sendLog(`[系統] 處理: ${maskedId}`);
-  emitProgress('initializing');
+    const context = {
+      pendingCodes: [],
+      outputDir,
+      folderStructure,
+      filenamePattern,
+      i,
+      idsLength: ids.length,
+      totalVotes: 0,
+      totalShots: 0,
+      currentVote: 0,
+      currentShot: 0,
+      sessionStats,
+    };
 
-  try {
-    sendLog('[系統] 清空 Session...');
-    await webContents.session.clearStorageData();
-    await webContents.session.clearCache();
+    const emitProgress = (status = 'processing') => {
+      sendProgress({ 
+        id: { current: i + 1, total: ids.length }, 
+        vote: { 
+          current: context.currentVote, 
+          total: context.totalVotes, 
+          globalCurrent: sessionStats.voted, 
+          globalTotal: sessionStats.totalVotes, 
+        }, 
+        screenshot: { 
+          current: context.currentShot, 
+          total: context.totalShots, 
+          globalCurrent: sessionStats.screenshoted, 
+          globalTotal: sessionStats.totalShots, 
+        },
+        status,
+      });
+    };
 
-    const loggedIn = await login.execute(webContents, id, sendLog);
-    if (!loggedIn) {
-      sendLog(`[登入] ${maskedId} 失敗，跳過。`, 'error');
+    if (retryCount === 0) {
+      sendLog(`[系統] 處理: ${maskedId}`);
+    } else {
+      sendLog(`[系統] ${maskedId} 發生異常，嘗試重新執行 (${retryCount}/${maxRetries})...`, 'warning');
+    }
+    emitProgress('initializing');
+
+    try {
+      sendLog('[系統] 清空 Session...');
+      await webContents.session.clearStorageData();
+      await webContents.session.clearCache();
+
+      const loggedIn = await login.execute(webContents, id, sendLog);
+      if (!loggedIn) {
+        sendLog(`[登入] ${maskedId} 失敗，跳過。`, 'error');
+        emitProgress('finished');
+        return;
+      }
+
+      sendLog('[清單] 抓取清單...');
+      const companies = await voting.getCompanyList(webContents, sendLog);
+
+      const pendingCompanies = companies.filter(c => c.status === 'pending');
+      const votedNeedScreenshot = companies.filter(c => c.status === 'voted' && !isScreenshotExists(id, c, outputDir, folderStructure) && !c.hasEGift);
+      const targetCompanies = [...pendingCompanies, ...votedNeedScreenshot];
+
+      context.pendingCodes = pendingCompanies.map(c => c.code);
+      context.totalVotes = pendingCompanies.length;
+      context.totalShots = targetCompanies.length;
+      
+      // Deduct previous stats if retrying to avoid double counting
+      if (retryCount > 0) {
+        // This is tricky because we don't know how much was already added.
+        // For simplicity, sessionStats should probably only be updated on success or at the end.
+        // But the UI needs it. Let's just add the delta if we can.
+      } else {
+        sessionStats.totalVotes += context.totalVotes;
+        sessionStats.totalShots += context.totalShots;
+      }
+
+      sendLog(`[清單] 需投 ${context.totalVotes}，需截 ${votedNeedScreenshot.length}。`);
+      emitProgress();
+
+      for (const company of targetCompanies) {
+        if (isStopRequested()) break;
+
+        await processCompany(webContents, id, company, context, sendLog, emitProgress, isStopRequested);
+
+        if (!isStopRequested()) await voting.navigateBackToList(webContents, sendLog);
+      }
+
+      if (isStopRequested()) {
+        sendLog(`[系統] ${maskedId} 已收停止請求，停止作業。`);
+        return;
+      }
+
+      await logout.execute(webContents, sendLog);
+      await randomDelay(800, 1500);
+
+      sendLog('[導航] 回登入頁...');
+      const waitLogin = waitForNavigation(webContents);
+      webContents.loadURL(CONSTANTS.URLS.LOGIN);
+      await waitLogin;
+      await randomDelay(1000, 2000);
+
+      sendLog(`[系統] ${maskedId} 結束。`, 'info');
       emitProgress('finished');
-      return;
+      return; // Success, break the retry loop
+
+    } catch (error) {
+      if (isStopRequested()) return;
+      
+      const isNavLost = error.message.includes('NAV_LOST') || error.message.includes('找不到搜尋元件');
+      
+      if (isNavLost && retryCount < maxRetries) {
+        sendLog(`[系統] ${maskedId} 導航遺失: ${error.message}，準備重試。`, 'warning');
+        retryCount++;
+        await logout.execute(webContents, sendLog).catch(() => {});
+        await randomDelay(2000, 5000);
+        continue; // Retry
+      }
+
+      sendLog(`[系統] ${maskedId} 錯誤: ${error.message}`, 'error');
+      emitProgress('finished');
+      return; // Stop retrying on other errors or max retries reached
     }
-
-    sendLog('[清單] 抓取清單...');
-    const companies = await voting.getCompanyList(webContents, sendLog);
-
-    const pendingCompanies = companies.filter(c => c.status === 'pending');
-    const votedNeedScreenshot = companies.filter(c => c.status === 'voted' && !isScreenshotExists(id, c, outputDir, folderStructure) && !c.hasEGift);
-    const targetCompanies = [...pendingCompanies, ...votedNeedScreenshot];
-
-    context.pendingCodes = pendingCompanies.map(c => c.code);
-    context.totalVotes = pendingCompanies.length;
-    context.totalShots = targetCompanies.length;
-    
-    sessionStats.totalVotes += context.totalVotes;
-    sessionStats.totalShots += context.totalShots;
-
-    sendLog(`[清單] 需投 ${context.totalVotes}，需截 ${votedNeedScreenshot.length}。`);
-    emitProgress();
-
-    for (const company of targetCompanies) {
-      if (isStopRequested()) break;
-
-      await processCompany(webContents, id, company, context, sendLog, emitProgress, isStopRequested);
-
-      if (!isStopRequested()) await voting.navigateBackToList(webContents, sendLog);
-    }
-
-    if (isStopRequested()) {
-      sendLog(`[系統] ${maskedId} 已收停止請求，停止作業。`);
-      return;
-    }
-
-    await logout.execute(webContents, sendLog);
-    await randomDelay(800, 1500);
-
-    sendLog('[導航] 回登入頁...');
-    const waitLogin = waitForNavigation(webContents);
-    webContents.loadURL(CONSTANTS.URLS.LOGIN);
-    await waitLogin;
-    await randomDelay(1000, 2000);
-
-    sendLog(`[系統] ${maskedId} 結束。`, 'info');
-    emitProgress('finished');
-  } catch (error) {
-    sendLog(`[系統] ${maskedId} 錯誤: ${error.message}`, 'error');
-    emitProgress('finished');
   }
 }
 

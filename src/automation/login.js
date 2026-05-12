@@ -138,8 +138,9 @@ async function execute(webContents, nationalId, sendLog) {
 
     if (currentUrl.includes('login') && !currentUrl.includes('index')) {
       sendLog('[警告] 未跳轉，手動導航...', 'warning');
+      const waitIdx = waitForNavigation(webContents);
       await webContents.loadURL(CONSTANTS.URLS.INDEX);
-      await delay(30000);
+      await waitIdx;
       currentUrl = webContents.getURL();
       if (currentUrl.includes('login') && !currentUrl.includes('index')) return false;
     }
