@@ -121,6 +121,8 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
     const waitClick = waitForNavigation(webContents);
     const clickResult = await webContents.executeJavaScript(`
       (() => {
+          window.alert = function() { return true; };
+          window.confirm = function() { return true; };
           const row = document.querySelectorAll('tr')[${company.rowIndex}];
           if (!row) return false;
           const voteLink = Array.from(row.querySelectorAll('a.c-actLink')).find(a => a.innerText.includes('投票'));
@@ -149,6 +151,8 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
 
     const pageScript = `
       (async () => {
+        window.alert = function() { return true; };
+        window.confirm = function() { return true; };
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         const submitBtn = Array.from(document.querySelectorAll('button')).find(el => 
             el.getAttribute('onclick')?.includes('voteObj.checkMeetingPartner()')
@@ -158,6 +162,18 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
 
         if (submitBtn) {
             submitBtn.click();
+            
+            // Attempt to dismiss any DOM-based confirmation dialogs that appear after submission
+            setTimeout(() => {
+                const domConfirm = Array.from(document.querySelectorAll('button, a')).find(el => 
+                    (el.innerText.includes('確定') || el.innerText.includes('確認') || el.innerText.includes('OK')) && 
+                    el.closest(':not([style*="display: none"])')
+                );
+                if (domConfirm) {
+                    try { domConfirm.click(); } catch(e) {}
+                }
+            }, 500);
+
             return { type: 'submit', success: true };
         }
 
