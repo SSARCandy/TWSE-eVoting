@@ -10,7 +10,7 @@ async function processCompany(webContents, id, company, context, sendLog, emitPr
   const { pendingCodes, outputDir, folderStructure, filenamePattern, i, idsLength, sessionStats } = context;
   const { code } = company;
 
-  if (isScreenshotExists(id, company, outputDir, folderStructure)) {
+  if (company.status !== 'pending' && isScreenshotExists(id, company, outputDir, folderStructure, filenamePattern)) {
     sendLog(`[清單] ${code} 已有截圖，跳過。`);
     if (pendingCodes.includes(code)) {
       context.currentVote++;
@@ -160,7 +160,7 @@ async function processId(webContents, id, i, ids, sendLog, sendProgress, isStopR
       const companies = await voting.getCompanyList(webContents, sendLog);
 
       const pendingCompanies = companies.filter(c => c.status === 'pending');
-      const votedNeedScreenshot = companies.filter(c => c.status === 'voted' && !isScreenshotExists(id, c, outputDir, folderStructure) && !c.hasEGift);
+      const votedNeedScreenshot = companies.filter(c => c.status === 'voted' && !isScreenshotExists(id, c, outputDir, folderStructure, filenamePattern) && !c.hasEGift);
       const targetCompanies = [...pendingCompanies, ...votedNeedScreenshot];
 
       context.pendingCodes = pendingCompanies.map(c => c.code);

@@ -5,10 +5,10 @@ const { delay } = require('./utils');
 
 /**
  * Generates a screenshot filename based on pattern.
- * Pattern supports: {id}, {code}, {name}
+ * Pattern supports: {id}, {code}, {name}, {date}
  * @param {string} pattern - Filename pattern.
  * @param {string} nationalId - User's national ID.
- * @param {object} company - Company object with 'code' and 'name'.
+ * @param {object} company - Company object with 'code', 'name', 'meetingDate'.
  * @returns {string} The formatted filename.
  */
 function formatFilename(pattern, nationalId, company) {
@@ -23,11 +23,13 @@ function formatFilename(pattern, nationalId, company) {
   safeName = safeName.replace(/_+/g, '_').replace(/^_+|_+$/g, '');
 
   const nameToUse = safeName || 'noname';
+  const meetingDateToUse = company.meetingDate || 'nodate';
 
   return pattern
     .replace(/{id}/g, nationalId || 'unknown')
     .replace(/{code}/g, company.code || 'unknown')
-    .replace(/{name}/g, nameToUse);
+    .replace(/{name}/g, nameToUse)
+    .replace(/{date}/g, meetingDateToUse);
 }
 
 /**

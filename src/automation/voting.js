@@ -48,6 +48,17 @@ async function getCompanyList(webContents, sendLog) {
                     name = companyInfo.length > 1 ? companyInfo.slice(1).join(' ') : '未知公司';
                 }
             }
+
+            let meetingDate = '';
+            if (cells.length > 1) {
+                const dateDiv = cells[1].querySelector('div');
+                if (dateDiv) {
+                    const parts = dateDiv.innerText.trim().split('/');
+                    if (parts.length === 3) {
+                        meetingDate = parts.join('');
+                    }
+                }
+            }
             
             const links = Array.from(row.querySelectorAll('a.c-actLink, a.u-link'));
             const hasVote = links.some(a => ['投票', 'Vote'].some(kw => a.innerText.includes(kw)));
@@ -61,6 +72,7 @@ async function getCompanyList(webContents, sendLog) {
             return {
                 code,
                 name,
+                meetingDate,
                 status: hasVote ? 'pending' : 'voted',
                 hasEGift,
                 rowIndex: Array.from(row.parentNode.children).indexOf(row)
@@ -163,18 +175,6 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
 
         if (submitBtn) {
             submitBtn.click();
-            
-            // Attempt to dismiss any DOM-based confirmation dialogs that appear after submission
-            setTimeout(() => {
-                const domConfirm = Array.from(document.querySelectorAll('button, a')).find(el => 
-                    (el.innerText.includes('確定') || el.innerText.includes('確認') || el.innerText.includes('OK')) && 
-                    el.closest(':not([style*="display: none"])')
-                );
-                if (domConfirm) {
-                    try { domConfirm.click(); } catch(e) {}
-                }
-            }, 500);
-
             return { type: 'submit', success: true };
         }
 
@@ -226,7 +226,7 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
     if (result.type === 'submit') {
       sendLog('[投票] 偵測確認頁，點擊送出。');
       submitted = true;
-      
+
       let isNavigated = false;
       waitNext.then(() => isNavigated = true);
 
@@ -256,11 +256,11 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
       await waitNext;
       if (isStopRequested()) return;
       await randomDelay(1500, 3000);
-      break; 
+      break;
     }
 
     sendLog('[投票] 本頁完成，點擊下一步...');
-    
+
     let isNavigatedNext = false;
     waitNext.then(() => isNavigatedNext = true);
 
@@ -334,7 +334,7 @@ async function searchAndNavigate(webContents, stockCode, sendLog) {
     if (!result.success) throw new Error(result.reason);
 
     for (let i = 0; i < 20; i++) {
-      await delay(500); 
+      await delay(500);
       const waitSearchNav = waitForNavigation(webContents);
       const linkResult = await webContents.executeJavaScript(`
             (() => {
@@ -473,7 +473,7 @@ async function ensureOnListPage(webContents, sendLog, forceThrow = true) {
   const waitP = waitForNavigation(webContents, 4000);
   webContents.goBack();
   const success = await waitP;
-  
+
   if (success && await isAtListPage(webContents)) return true;
 
   if (forceThrow) {
@@ -481,11 +481,11 @@ async function ensureOnListPage(webContents, sendLog, forceThrow = true) {
     const waitNav = waitForNavigation(webContents, 10000);
     await webContents.loadURL(URLS.INDEX);
     await waitNav;
-    
+
     if (await isAtListPage(webContents)) return true;
     throw new Error('NAV_LOST: 無法回到列表頁面');
   }
-  
+
   return false;
 }
 

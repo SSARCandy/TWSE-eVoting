@@ -95,7 +95,7 @@ const dirCache = new Map();
  * Checks if a screenshot proof already exists for a given ID and stock code/company.
  * Uses fuzzy matching to find any file containing both ID and Code.
  */
-function isScreenshotExists(nationalId, company, outputDir, folderStructure = 'by_id') {
+function isScreenshotExists(nationalId, company, outputDir, folderStructure = 'by_id', filenamePattern = null) {
   const baseDir = outputDir || path.join(app.getPath('documents'), '投票證明');
   const dir = folderStructure === 'flat' ? baseDir : path.join(baseDir, nationalId);
 

@@ -42,8 +42,9 @@ const State = {
   lastProgress: 0,
   chipDefinitions: [
     { id: '{id}', label: '身分證字號', required: true, example: 'A123456789' },
-    { id: '{code}', label: '股票代號', required: true, example: '2330' },
-    { id: '{name}', label: '公司名稱', required: false, example: '台積電' }
+    { id: '{code}', label: '股號', required: true, example: '2330' },
+    { id: '{name}', label: '公司名', required: false, example: '台積電' },
+    { id: '{date}', label: '會議日', required: false, example: '1150512' }
   ],
 };
 
@@ -94,7 +95,7 @@ const App = {
     const chip = document.createElement('div');
     chip.className = `chip ${def.required ? 'required' : 'optional'} ${isActive ? 'active' : 'inactive'}`;
     if (!isActive) chip.style.opacity = '0.5';
-    
+
     chip.draggable = true;
     chip.dataset.id = def.id;
     chip.innerHTML = `
@@ -161,12 +162,12 @@ const App = {
   bindEvents() {
     UI.inputs.ids.addEventListener('input', this.debouncedSave.bind(this));
     UI.inputs.folderStructure.addEventListener('change', this.debouncedSave.bind(this));
-    
+
     UI.chips.container.addEventListener('dragover', (e) => {
       e.preventDefault();
       const dragging = document.querySelector('.dragging');
       if (!dragging) return;
-      
+
       const afterElement = this.getDragAfterElement(UI.chips.container, e.clientX, e.clientY);
       if (afterElement == null) {
         UI.chips.container.appendChild(dragging);
@@ -205,10 +206,10 @@ const App = {
       const box = child.getBoundingClientRect();
       const offsetX = x - box.left - box.width / 2;
       const offsetY = y - box.top - box.height / 2;
-      
+
       // Calculate Euclidean distance for better multi-line support
       const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-      
+
       if (distance < closest.distance) {
         return { distance: distance, element: child };
       } else {
@@ -321,7 +322,7 @@ const App = {
 
     const base = Math.max(0, id.current - 1);
     let accountProgress = 0;
-    
+
     if (status === 'finished') {
       accountProgress = 1;
     } else if (status === 'initializing') {
@@ -338,7 +339,7 @@ const App = {
         accountProgress = screenshot.current / screenshot.total;
       }
     }
-    
+
     let totalPercent = Math.min(100, Math.max(0, Math.floor(((base + accountProgress) / id.total) * 100)));
 
     if (totalPercent < State.lastProgress) {
