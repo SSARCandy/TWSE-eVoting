@@ -1,7 +1,7 @@
 /**
  * Voting automation logic
  */
-const { delay, randomDelay, waitForNavigation } = require('./utils');
+const { delay, randomDelay, waitForNavigation, safeExecute } = require('./utils');
 const { URLS } = require('../constants');
 
 /**
@@ -141,7 +141,8 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
   sendLog(`[投票] 進入頁面，執行程序...`);
 
   let pageCount = 0;
-  const maxPages = 5;
+  const maxPages = 20;
+  let submitted = false;
 
   while (pageCount < maxPages) {
     if (isStopRequested()) return;
@@ -224,6 +225,34 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
 
     if (result.type === 'submit') {
       sendLog('[投票] 偵測確認頁，點擊送出。');
+      submitted = true;
+      
+      let isNavigated = false;
+      waitNext.then(() => isNavigated = true);
+
+      // Check for blocking modal like "您尚未對【...】進行電子投票作業" that prevents navigation after submit
+      for (let j = 0; j < 6; j++) {
+        if (isNavigated) break;
+        const modalText = await safeExecute(webContents, `
+          (() => {
+            const dialog = document.getElementById('msgDialog');
+            if (dialog && dialog.style.display !== 'none' && dialog.offsetHeight > 0) {
+              const msg = document.getElementById('msgDialog_msg');
+              const btn = document.getElementById('msgDialog_okBtn');
+              if (btn) btn.click();
+              return msg ? msg.innerText.trim() : '操作被擋截';
+            }
+            return null;
+          })()
+        `);
+        if (modalText && typeof modalText === 'string' && !modalText.startsWith('ERROR:')) {
+          sendLog(`[警告] 彈出提示: ${modalText}`, 'warning');
+          // If dialog is dismissed, it might not navigate, but we don't want to abort.
+          // Breaking the loop will let it continue, and it will await the navigation (which might timeout if blocked).
+        }
+        await delay(500);
+      }
+
       await waitNext;
       if (isStopRequested()) return;
       await randomDelay(1500, 3000);
@@ -231,12 +260,37 @@ async function voteForCompany(webContents, company, sendLog, skipClick = false, 
     }
 
     sendLog('[投票] 本頁完成，點擊下一步...');
+    
+    let isNavigatedNext = false;
+    waitNext.then(() => isNavigatedNext = true);
+
+    // Also check for modal after clicking "Next" just in case
+    for (let j = 0; j < 6; j++) {
+      if (isNavigatedNext) break;
+      const modalText = await safeExecute(webContents, `
+        (() => {
+          const dialog = document.getElementById('msgDialog');
+          if (dialog && dialog.style.display !== 'none' && dialog.offsetHeight > 0) {
+            const msg = document.getElementById('msgDialog_msg');
+            const btn = document.getElementById('msgDialog_okBtn');
+            if (btn) btn.click();
+            return msg ? msg.innerText.trim() : '操作被擋截';
+          }
+          return null;
+        })()
+      `);
+      if (modalText && typeof modalText === 'string' && !modalText.startsWith('ERROR:')) {
+        sendLog(`[警告] 彈出提示: ${modalText}`, 'warning');
+      }
+      await delay(500);
+    }
+
     await waitNext;
     if (isStopRequested()) return;
     await randomDelay(1500, 3000);
   }
 
-  if (pageCount >= maxPages) throw new Error(`超過最大頁數限制 (${maxPages})`);
+  if (!submitted && pageCount >= maxPages) throw new Error(`超過最大頁數限制 (${maxPages})`);
 
   if (isStopRequested()) return;
 
@@ -299,6 +353,32 @@ async function searchAndNavigate(webContents, stockCode, sendLog) {
         `);
 
       if (linkResult && linkResult.found) {
+        let isNavigated = false;
+        waitSearchNav.then(() => isNavigated = true);
+
+        // Check for blocking modal like "您尚未對【...】進行電子投票作業"
+        for (let j = 0; j < 6; j++) {
+          if (isNavigated) break;
+          const modalText = await safeExecute(webContents, `
+            (() => {
+              const dialog = document.getElementById('msgDialog');
+              if (dialog && dialog.style.display !== 'none' && dialog.offsetHeight > 0) {
+                const msg = document.getElementById('msgDialog_msg');
+                const btn = document.getElementById('msgDialog_okBtn');
+                if (btn) btn.click();
+                return msg ? msg.innerText.trim() : '操作被擋截';
+              }
+              return null;
+            })()
+          `);
+          if (modalText && typeof modalText === 'string' && !modalText.startsWith('ERROR:')) {
+            sendLog(`[警告] 彈出提示: ${modalText}`, 'warning');
+            // If dialog is dismissed, it might not navigate, but we don't want to abort.
+            // Breaking the loop will let it continue, and it will await the navigation (which might timeout if blocked).
+          }
+          await delay(500);
+        }
+
         await waitSearchNav;
         await randomDelay(1500, 3000);
         return { success: true, type: linkResult.type };
