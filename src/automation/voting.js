@@ -102,7 +102,7 @@ async function getCompanyList(webContents, sendLog) {
     if (hasNextPage) {
       pageNum++;
       await waitForNavigation(webContents);
-      await randomDelay(1500, 2500);
+      await randomDelay(500, 1500);
     }
   }
 
